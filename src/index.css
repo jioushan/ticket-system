@@ -1,0 +1,117 @@
+@import "@cloudflare/kumo/styles/standalone";
+
+/* Global reset - full viewport */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Table spacing - more comfortable padding */
+table td {
+  padding-top: 0.875rem !important;
+  padding-bottom: 0.875rem !important;
+}
+
+table th {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* Sidebar wrapper - contain within viewport */
+[data-sidebar-wrapper] {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  --sidebar-width-icon: 64px;
+}
+
+/* Enlarge icons when sidebar is collapsed */
+[data-state="collapsed"] [data-sidebar="menu-button"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+[data-state="collapsed"] [data-sidebar="menu-button"] {
+  min-height: 44px;
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+
+/* Global button padding - more comfortable sizing */
+button:not(.p-0):not([data-sidebar]):not(.text-link-btn),
+[role="button"]:not(.p-0) {
+  padding-left: 0.875rem !important;
+  padding-right: 0.875rem !important;
+  min-height: 34px;
+}
+
+/* Text link buttons (login page register/forgot links) */
+.text-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-color-kumo-link, #3b82f6);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 0 !important;
+  min-height: auto;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Size-specific overrides */
+.h-5:not(.p-0) {
+  height: 30px !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+.h-6\.5:not(.p-0), .h-6:not(.p-0) {
+  height: 36px !important;
+  padding-left: 0.875rem !important;
+  padding-right: 0.875rem !important;
+}
+.h-9:not(.p-0) {
+  height: 42px !important;
+  padding-left: 1.125rem !important;
+  padding-right: 1.125rem !important;
+}
+.h-10:not(.p-0) {
+  height: 46px !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+}
+
+/* Input fields - comfortable rectangle sizing */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  height: 44px !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  font-size: 15px !important;
+}
+
+textarea {
+  height: auto !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* Responsive helpers */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+}
+@media (max-width: 1024px) {
+  .hide-tablet { display: none !important; }
+}
