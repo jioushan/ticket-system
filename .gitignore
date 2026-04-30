@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# 忽略 workers 文件夾及其所有內容
+workers/
+
+# 建議也忽略 node_modules 和編譯產出的 dist（如果你還沒加的話）
+node_modules/
+dist/
