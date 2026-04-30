@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, Input, SensitiveInput, Banner } from "@cloudflare/kumo";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import { useTranslation } from "../i18n/I18nContext";
 import LanguageSwitch from "../components/LanguageSwitch";
 import { useTheme } from "../context/ThemeContext";
@@ -48,11 +49,15 @@ export default function Login() {
     if (regPassword !== regConfirm) { setError("密碼不一致"); return; }
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await api.auth.register(regUsername, regEmail, regPassword);
       setSuccess(t("auth.registerSuccess"));
       setTimeout(() => switchPanel("login"), 1500);
-    }, 500);
+    } catch (err: any) {
+      setError(err.message || t("auth.loginError"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -60,10 +65,14 @@ export default function Login() {
     if (!forgotEmail) return;
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await api.auth.forgotPassword(forgotEmail);
       setSuccess("重置連結已發送至您的電子郵件");
-    }, 500);
+    } catch (err: any) {
+      setError(err.message || t("auth.loginError"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const visible = (target: Panel) => panel === target;
