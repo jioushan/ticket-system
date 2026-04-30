@@ -5,7 +5,8 @@ import { api } from "../lib/api";
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<{ requires2fa?: boolean; tempToken?: string }>;
+  completeLogin: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -24,26 +25,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("auth_user", JSON.stringify(freshUser));
       setUser(freshUser);
     } catch {
-      // Token invalid or expired
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
       setUser(null);
     }
   }, []);
 
-  // Verify token and get fresh user data on mount
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
-    if (token) {
-      refreshUser();
-    }
+    if (token) refreshUser();
   }, [refreshUser]);
 
   const login = useCallback(async (username: string, password: string) => {
     const data = await api.auth.login(username, password);
+    if (data.requires2fa) {
+      return { requires2fa: true, tempToken: data.tempToken };
+    }
     localStorage.setItem("auth_token", data.token);
     localStorage.setItem("auth_user", JSON.stringify(data.user));
     setUser(data.user);
+    return {};
+  }, []);
+
+  const completeLogin = useCallback((token: string, userData: User) => {
+    localStorage.setItem("auth_token", token);
+    localStorage.setItem("auth_user", JSON.stringify(userData));
+    setUser(userData);
   }, []);
 
   const logout = useCallback(() => {
@@ -55,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, completeLogin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

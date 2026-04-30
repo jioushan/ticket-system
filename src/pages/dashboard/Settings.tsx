@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Text, Input, Button, Banner, Badge, Switch, Dialog, Table } from "@cloudflare/kumo";
+import { Text, Input, SensitiveInput, Button, Banner, Badge, Switch, Dialog, Table } from "@cloudflare/kumo";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
@@ -42,6 +42,20 @@ export default function Settings() {
   const [testEmailSending, setTestEmailSending] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Change password
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwResult, setPwResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // 2FA
+  const [has2fa, setHas2fa] = useState(false);
+  const [twoFASetup, setTwoFASetup] = useState<{ secret: string; otpauth_url: string } | null>(null);
+  const [twoFACode, setTwoFACode] = useState("");
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAResult, setTwoFAResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   const fetchSettings = useCallback(async () => {
     try {
       const data = await api.settings.get();
@@ -66,8 +80,77 @@ export default function Settings() {
   }, [isAdmin]);
 
   useEffect(() => {
+    // Check 2FA status from user profile
+    api.auth.me().then((data: any) => {
+      setHas2fa(!!data.has2fa);
+    }).catch(() => {});
     Promise.all([fetchSettings(), fetchUsers()]).finally(() => setLoading(false));
   }, [fetchSettings, fetchUsers]);
+
+  const handleSetup2FA = async () => {
+    setTwoFALoading(true);
+    setTwoFAResult(null);
+    try {
+      const data = await api.auth.setup2fa();
+      setTwoFASetup(data);
+    } catch (err: any) {
+      setTwoFAResult({ ok: false, msg: err.message || "設置失敗" });
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleEnable2FA = async () => {
+    if (!twoFACode || twoFACode.length !== 6) return;
+    setTwoFALoading(true);
+    setTwoFAResult(null);
+    try {
+      await api.auth.enable2fa(twoFACode);
+      setHas2fa(true);
+      setTwoFASetup(null);
+      setTwoFACode("");
+      setTwoFAResult({ ok: true, msg: "2FA 已啟用" });
+    } catch (err: any) {
+      setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    if (!twoFACode || twoFACode.length !== 6) return;
+    setTwoFALoading(true);
+    setTwoFAResult(null);
+    try {
+      await api.auth.disable2fa(twoFACode);
+      setHas2fa(false);
+      setTwoFACode("");
+      setTwoFAResult({ ok: true, msg: "2FA 已關閉" });
+    } catch (err: any) {
+      setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPw || !newPw) return;
+    if (newPw !== confirmPw) { setPwResult({ ok: false, msg: "新密碼不一致" }); return; }
+    if (newPw.length < 4) { setPwResult({ ok: false, msg: "密碼至少4位" }); return; }
+    setPwLoading(true);
+    setPwResult(null);
+    try {
+      await api.auth.changePassword(currentPw, newPw);
+      setPwResult({ ok: true, msg: "密碼已變更，已發送通知郵件" });
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+    } catch (err: any) {
+      setPwResult({ ok: false, msg: err.message || "變更失敗" });
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   const handleTestEmail = async () => {
     if (!testEmail) return;
@@ -144,6 +227,78 @@ export default function Settings() {
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
           <Input label={t("settings.username")} value={username} readOnly />
           <Input label={t("settings.email")} type="email" value={email} readOnly />
+        </div>
+      </section>
+
+      {/* Change Password */}
+      <section>
+        <Text variant="heading3" as="h2">變更密碼</Text>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+          <SensitiveInput label="當前密碼" value={currentPw} onValueChange={setCurrentPw} />
+          <SensitiveInput label="新密碼" value={newPw} onValueChange={setNewPw} />
+          <SensitiveInput label="確認新密碼" value={confirmPw} onValueChange={setConfirmPw} />
+          {pwResult && (
+            <Banner variant={pwResult.ok ? "default" : "error"}>{pwResult.msg}</Banner>
+          )}
+          <Button variant="secondary" onClick={handleChangePassword} loading={pwLoading}>
+            變更密碼
+          </Button>
+        </div>
+      </section>
+
+      {/* 2FA */}
+      <section>
+        <Text variant="heading3" as="h2">二步驗證 (2FA)</Text>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+          {has2fa ? (
+            <>
+              <div style={{ width: "fit-content" }}><Badge variant="green">已啟用</Badge></div>
+              <Text size="sm" variant="secondary">使用驗證器 App 掃描過的密鑰仍然有效。要關閉 2FA，請輸入當前驗證碼。</Text>
+              <Input
+                label="驗證碼"
+                placeholder="輸入 6 位驗證碼"
+                value={twoFACode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+              />
+              <Button variant="destructive" onClick={handleDisable2FA} loading={twoFALoading} disabled={twoFACode.length !== 6}>
+                關閉 2FA
+              </Button>
+            </>
+          ) : twoFASetup ? (
+            <>
+              <Text size="sm">使用驗證器 App（Google Authenticator、Authy 等）掃描 QR Code：</Text>
+              <div style={{ textAlign: "center", padding: "1rem", background: "#fff", borderRadius: 8, display: "inline-block", alignSelf: "center" }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFASetup.otpauth_url)}`}
+                  alt="QR Code"
+                  style={{ width: 200, height: 200 }}
+                />
+              </div>
+              <Text size="sm" variant="secondary">或手動輸入密鑰：<code style={{ padding: "2px 6px", background: "var(--color-kumo-fill)", borderRadius: 4, fontSize: 13 }}>{twoFASetup.secret}</code></Text>
+              <Input
+                label="驗證碼"
+                placeholder="輸入 6 位驗證碼確認"
+                value={twoFACode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+              />
+              <Button variant="primary" onClick={handleEnable2FA} loading={twoFALoading} disabled={twoFACode.length !== 6}>
+                啟用 2FA
+              </Button>
+              <Button variant="secondary" onClick={() => { setTwoFASetup(null); setTwoFACode(""); }}>取消</Button>
+            </>
+          ) : (
+            <>
+              <Text size="sm" variant="secondary">啟用二步驗證後，登入時需要輸入驗證器 App 產生的驗證碼。</Text>
+              <Button variant="secondary" onClick={handleSetup2FA} loading={twoFALoading}>
+                設置 2FA
+              </Button>
+            </>
+          )}
+          {twoFAResult && (
+            <Banner variant={twoFAResult.ok ? "default" : "error"}>{twoFAResult.msg}</Banner>
+          )}
         </div>
       </section>
 

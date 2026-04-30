@@ -27,6 +27,15 @@ export const api = {
     resetPassword: (token: string, newPassword: string) =>
       request("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }),
     me: () => request("/api/auth/me"),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
+    verify2fa: (tempToken: string, code: string) =>
+      request("/api/auth/2fa/verify", { method: "POST", body: JSON.stringify({ tempToken, code }) }),
+    setup2fa: () => request("/api/auth/2fa/setup", { method: "POST" }),
+    enable2fa: (code: string) =>
+      request("/api/auth/2fa/enable", { method: "POST", body: JSON.stringify({ code }) }),
+    disable2fa: (code: string) =>
+      request("/api/auth/2fa/disable", { method: "POST", body: JSON.stringify({ code }) }),
   },
   tickets: {
     list: () => request("/api/tickets"),

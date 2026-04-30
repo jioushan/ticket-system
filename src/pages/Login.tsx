@@ -14,7 +14,7 @@ const LOGO_URL = "https://www.jsmsr.com/v3/assets/img/favicon.svg";
 type Panel = "login" | "register" | "forgot";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, completeLogin } = useAuth();
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [panel, setPanel] = useState<Panel>("login");
@@ -24,6 +24,11 @@ export default function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  // 2FA
+  const [requires2fa, setRequires2fa] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [twoFACode, setTwoFACode] = useState("");
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -54,8 +59,25 @@ export default function Login() {
     if (!username || !password) return;
     setError("");
     setLoading(true);
-    try { await login(username, password); }
-    catch { setError(t("auth.loginError")); }
+    try {
+      const result = await login(username, password);
+      if (result.requires2fa) {
+        setRequires2fa(true);
+        setTempToken(result.tempToken || "");
+      }
+    } catch { setError(t("auth.loginError")); }
+    finally { setLoading(false); }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFACode) return;
+    setError("");
+    setLoading(true);
+    try {
+      const data = await api.auth.verify2fa(tempToken, twoFACode);
+      completeLogin(data.token, data.user);
+    } catch { setError("驗證碼錯誤"); }
     finally { setLoading(false); }
   };
 
@@ -63,7 +85,8 @@ export default function Login() {
     e.preventDefault();
     if (!regUsername || !regEmail || !regPassword) return;
     if (regPassword !== regConfirm) { setError("密碼不一致"); return; }
-    if (turnstileEnabled && !turnstileToken) { setError("請完成驗證"); return; }
+    if (turnstileEnabled && turnstileSiteKey && !turnstileToken) { setError("請完成驗證"); return; }
+    if (turnstileEnabled && !turnstileSiteKey) { setError("Turnstile 網站密鑰未配置，無法註冊"); return; }
     setError("");
     setLoading(true);
     try {
@@ -141,22 +164,42 @@ export default function Login() {
               <h1 style={{
                 fontSize: "1.5rem", fontWeight: 700, margin: 0,
                 color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",
-              }}>{t("app.title")}</h1>
+              }}>{requires2fa ? "二次驗證" : t("app.title")}</h1>
             </div>
             {error && <Banner variant="error">{error}</Banner>}
-            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <Input label={t("auth.username")} value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} />
-              <SensitiveInput label={t("auth.password")} value={password} onValueChange={setPassword} />
-              <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
-            </form>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <button type="button" className="text-link-btn" onClick={() => switchPanel("register")}>
-                {t("auth.register")}
-              </button>
-              <button type="button" className="text-link-btn" onClick={() => switchPanel("forgot")}>
-                {t("auth.forgotPassword")}
-              </button>
-            </div>
+            {!requires2fa ? (
+              <>
+                <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  <Input label={t("auth.username")} value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} />
+                  <SensitiveInput label={t("auth.password")} value={password} onValueChange={setPassword} />
+                  <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
+                </form>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <button type="button" className="text-link-btn" onClick={() => switchPanel("register")}>
+                    {t("auth.register")}
+                  </button>
+                  <button type="button" className="text-link-btn" onClick={() => switchPanel("forgot")}>
+                    {t("auth.forgotPassword")}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <form onSubmit={handleVerify2FA} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  <Input
+                    label="驗證碼"
+                    placeholder="輸入 6 位驗證碼"
+                    value={twoFACode}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    maxLength={6}
+                  />
+                  <Button type="submit" variant="primary" size="lg" loading={loading}>驗證</Button>
+                </form>
+                <button type="button" className="text-link-btn" onClick={() => { setRequires2fa(false); setTempToken(""); setTwoFACode(""); setError(""); }}>
+                  返回登入
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -177,12 +220,18 @@ export default function Login() {
               <Input label={t("auth.email")} type="email" value={regEmail} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmail(e.target.value)} />
               <SensitiveInput label={t("auth.password")} value={regPassword} onValueChange={setRegPassword} />
               <SensitiveInput label={t("auth.confirmPassword")} value={regConfirm} onValueChange={setRegConfirm} />
-              {turnstileEnabled && turnstileSiteKey && (
-                <TurnstileWidget
-                  siteKey={turnstileSiteKey}
-                  onVerify={setTurnstileToken}
-                  onExpire={() => setTurnstileToken("")}
-                />
+              {turnstileEnabled && (
+                turnstileSiteKey ? (
+                  <TurnstileWidget
+                    siteKey={turnstileSiteKey}
+                    onVerify={setTurnstileToken}
+                    onExpire={() => setTurnstileToken("")}
+                  />
+                ) : (
+                  <div style={{ fontSize: 13, color: "#ef4444", padding: "4px 0" }}>
+                    Turnstile 驗證已啟用但網站密鑰未配置，請聯繫管理員
+                  </div>
+                )
               )}
               <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.submit")}</Button>
             </form>

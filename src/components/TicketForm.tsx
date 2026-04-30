@@ -60,12 +60,18 @@ export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
         }}
       />
 
-      {turnstileEnabled && turnstileSiteKey && (
-        <TurnstileWidget
-          siteKey={turnstileSiteKey}
-          onVerify={setTurnstileToken}
-          onExpire={() => setTurnstileToken("")}
-        />
+      {turnstileEnabled && (
+        turnstileSiteKey ? (
+          <TurnstileWidget
+            siteKey={turnstileSiteKey}
+            onVerify={setTurnstileToken}
+            onExpire={() => setTurnstileToken("")}
+          />
+        ) : (
+          <div style={{ fontSize: 13, color: "#ef4444", padding: "4px 0" }}>
+            Turnstile 驗證已啟用但網站密鑰未配置
+          </div>
+        )
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
