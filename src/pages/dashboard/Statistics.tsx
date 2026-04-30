@@ -1,26 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Text, Button, Tabs } from "@cloudflare/kumo";
 import { Export } from "@phosphor-icons/react";
 import { useTranslation } from "../../i18n/I18nContext";
+import { api } from "../../lib/api";
 
-const mockStats = {
-  total: 128, open: 23, inProgress: 15, resolved: 67, closed: 23,
-  users: 45, admins: 3,
-};
-
-const barData = [
-  { label: "待處理", value: 23, color: "#f59e0b" },
-  { label: "進行中", value: 15, color: "#3b82f6" },
-  { label: "已完成", value: 67, color: "#22c55e" },
-  { label: "已關閉", value: 23, color: "#6b7280" },
-];
-
-const pieData = [
-  { label: "待處理", value: 23, color: "#f59e0b" },
-  { label: "進行中", value: 15, color: "#3b82f6" },
-  { label: "已完成", value: 67, color: "#22c55e" },
-  { label: "已關閉", value: 23, color: "#6b7280" },
-];
+interface Stats {
+  total: number;
+  open: number;
+  inProgress: number;
+  resolved: number;
+  closed: number;
+  users: number;
+  admins: number;
+}
 
 const cardStyle: React.CSSProperties = {
   padding: "1.5rem",
@@ -29,11 +21,11 @@ const cardStyle: React.CSSProperties = {
   background: "var(--color-kumo-base)",
 };
 
-function BarChart() {
-  const max = Math.max(...barData.map(d => d.value));
+function BarChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const max = Math.max(...data.map(d => d.value), 1);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "1.5rem", height: 200, padding: "0 1rem" }}>
-      {barData.map((d) => (
+      {data.map((d) => (
         <div key={d.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <Text size="sm" bold>{d.value}</Text>
           <div style={{
@@ -49,10 +41,11 @@ function BarChart() {
   );
 }
 
-function PieChart() {
-  const total = pieData.reduce((s, d) => s + d.value, 0);
+function PieChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return <div style={{ textAlign: "center", padding: "2rem" }}><Text>暫無數據</Text></div>;
   let cumulative = 0;
-  const gradient = pieData.map((d) => {
+  const gradient = data.map((d) => {
     const start = (cumulative / total) * 360;
     cumulative += d.value;
     const end = (cumulative / total) * 360;
@@ -66,7 +59,7 @@ function PieChart() {
         background: `conic-gradient(${gradient})`,
       }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {pieData.map((d) => (
+        {data.map((d) => (
           <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 12, height: 12, borderRadius: 3, background: d.color, flexShrink: 0 }} />
             <Text size="sm">{d.label}: {d.value} ({Math.round(d.value / total * 100)}%)</Text>
@@ -80,15 +73,45 @@ function PieChart() {
 export default function Statistics() {
   const { t } = useTranslation();
   const [chartType, setChartType] = useState("bar");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleExport = () => {
-    const csv = "ID,Title,Status,Priority,Created\nT-001,Server down,open,urgent,2026-04-28\nT-002,SSL expiring,in_progress,high,2026-04-25";
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "tickets.csv"; a.click();
-    URL.revokeObjectURL(url);
+  useEffect(() => {
+    api.stats()
+      .then((data) => setStats(data))
+      .catch((err) => console.error("Failed to fetch stats:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleExport = async () => {
+    try {
+      const tickets = await api.tickets.list();
+      const csv = "ID,Title,Status,Priority,Created\n" +
+        tickets.map((tk: any) => `${tk.id},${tk.title},${tk.status},${tk.priority},${tk.created_at}`).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "tickets.csv"; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "Export failed");
+    }
   };
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>;
+  }
+
+  if (!stats) {
+    return <div style={{ textAlign: "center", padding: "2rem" }}><Text>載入失敗</Text></div>;
+  }
+
+  const chartData = [
+    { label: "待處理", value: stats.open, color: "#f59e0b" },
+    { label: "進行中", value: stats.inProgress, color: "#3b82f6" },
+    { label: "已完成", value: stats.resolved, color: "#22c55e" },
+    { label: "已關閉", value: stats.closed, color: "#6b7280" },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -99,10 +122,10 @@ export default function Statistics() {
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
         {[
-          { label: t("stats.total"), value: mockStats.total },
-          { label: t("stats.open"), value: mockStats.open },
-          { label: t("stats.inProgress"), value: mockStats.inProgress },
-          { label: t("stats.resolved"), value: mockStats.resolved },
+          { label: t("stats.total"), value: stats.total },
+          { label: t("stats.open"), value: stats.open },
+          { label: t("stats.inProgress"), value: stats.inProgress },
+          { label: t("stats.resolved"), value: stats.resolved },
         ].map((item) => (
           <div key={item.label} style={cardStyle}>
             <Text size="sm" variant="secondary">{item.label}</Text>
@@ -125,7 +148,7 @@ export default function Statistics() {
             ]}
           />
         </div>
-        {chartType === "bar" ? <BarChart /> : <PieChart />}
+        {chartType === "bar" ? <BarChart data={chartData} /> : <PieChart data={chartData} />}
       </div>
 
       {/* User stats */}
@@ -134,11 +157,11 @@ export default function Statistics() {
         <div style={{ display: "flex", gap: "3rem", marginTop: "1rem" }}>
           <div>
             <Text size="sm" variant="secondary">用戶</Text>
-            <Text variant="heading2" as="span">{mockStats.users}</Text>
+            <Text variant="heading2" as="span">{stats.users}</Text>
           </div>
           <div>
             <Text size="sm" variant="secondary">管理員</Text>
-            <Text variant="heading2" as="span">{mockStats.admins}</Text>
+            <Text variant="heading2" as="span">{stats.admins}</Text>
           </div>
         </div>
       </div>

@@ -1,3 +1,5 @@
+claude/kumo/my-kumo-app via  
+❯ cat DEPLOYMENT.md 
 # 部署指南
 
 ## 前置準備
@@ -34,6 +36,7 @@ git push -u origin main
 每次修改後：
 
 ```bash
+git rm -r --cached workers
 git add .
 git commit -m "描述你的改動"
 git push
@@ -109,6 +112,8 @@ wrangler deploy
 部署成功後會顯示 Worker 的 URL，例如：
 ```
 https://ticket-system-api.你的子域名.workers.dev
+
+https://ticket-system-api.jioushan.workers.dev
 ```
 
 記下這個 URL，前端需要使用。
@@ -207,3 +212,7 @@ VITE_API_BASE=http://localhost:8787
 - 敏感信息（API Key、JWT Secret）務必通過 `wrangler secret` 設置，不要寫在代碼裡
 - 首次部署後，默認管理員帳號為 `admin` / `admin`，請及時修改密碼
 - `pnpm build` 時會自動從 Git 獲取 commit hash 作為版本號
+
+claude/kumo/my-kumo-app via  
+❯ 
+

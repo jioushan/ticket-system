@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Table, Badge, Button, Tabs, Pagination, Empty, Text, Dialog } from "@cloudflare/kumo";
 import { Plus } from "@phosphor-icons/react";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
+import { api } from "../../lib/api";
 import type { Ticket, TicketStatus, TicketPriority } from "../../types";
 import TicketForm from "../../components/TicketForm";
 import TicketConversation from "../../components/TicketConversation";
@@ -14,29 +15,34 @@ const priorityVariant: Record<string, "neutral" | "blue" | "orange" | "red"> = {
   low: "neutral", medium: "blue", high: "orange", urgent: "red",
 };
 
-const mockTickets: Ticket[] = [
-  { id: "T-001", title: "伺服器無法連線", description: "US Kansas City 節點回報無法連線，影響範圍約 30% 用戶", status: "open", priority: "urgent", assignee: "user1", createdAt: "2026-04-28 09:00", updatedAt: "2026-04-28 14:30" },
-  { id: "T-002", title: "SSL 憑證即將過期", description: "api.example.com 的 SSL 憑證將於 5 月 15 日過期", status: "in_progress", priority: "high", assignee: "user1", createdAt: "2026-04-25 10:00", updatedAt: "2026-04-27 16:00" },
-  { id: "T-003", title: "資料庫效能優化", description: "查詢回應時間超過 2 秒，需要進行索引優化", status: "in_progress", priority: "medium", assignee: "user2", createdAt: "2026-04-20 08:00", updatedAt: "2026-04-26 11:00" },
-  { id: "T-004", title: "備份排程異常", description: "每日凌晨備份任務偶發失敗", status: "resolved", priority: "high", assignee: "user1", createdAt: "2026-04-15 07:00", updatedAt: "2026-04-22 09:00" },
-  { id: "T-005", title: "新增 CDN 快取規則", description: "為 /assets/* 路徑設定 30 天快取", status: "closed", priority: "low", assignee: "user2", createdAt: "2026-04-10 14:00", updatedAt: "2026-04-12 10:00" },
-];
-
 export default function TicketList() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tabFilter, setTabFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [perPage] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
+  const fetchTickets = useCallback(async () => {
+    try {
+      const data = await api.tickets.list();
+      setTickets(data);
+    } catch (err) {
+      console.error("Failed to fetch tickets:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
   const filtered = useMemo(() => {
     let list = tickets;
-    // 用户只看到自己的工单
     if (user?.role !== "admin") {
-      list = list.filter((tk) => tk.assignee === user?.id || tk.assignee === user?.username);
+      list = list.filter((tk) => tk.user_id === user?.id);
     }
     if (tabFilter !== "all") list = list.filter((tk) => tk.status === tabFilter);
     return list;
@@ -49,32 +55,54 @@ export default function TicketList() {
 
   const statusLabel = (s: TicketStatus) => t(`ticket.${s === "in_progress" ? "inProgress" : s}`);
 
-  const handleCreate = (data: { title: string; description: string; priority: TicketPriority; assignee: string }) => {
-    const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-    const newTicket: Ticket = {
-      id: `T-${String(tickets.length + 1).padStart(3, "0")}`,
-      ...data,
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    };
-    setTickets([newTicket, ...tickets]);
-    setCreateOpen(false);
-    // TODO: API call + email notification
+  const handleCreate = async (data: { title: string; description: string; priority: TicketPriority }) => {
+    try {
+      await api.tickets.create({ title: data.title, description: data.description, priority: data.priority });
+      setCreateOpen(false);
+      await fetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Failed to create ticket");
+    }
   };
 
-  const handleCloseTicket = (id: string) => {
-    const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-    setTickets(tickets.map((tk) => tk.id === id ? { ...tk, status: "closed", updatedAt: now } : tk));
-    setSelectedTicket(null);
+  const handleCloseTicket = async (id: string) => {
+    try {
+      await api.tickets.close(id);
+      setSelectedTicket(null);
+      await fetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Failed to close ticket");
+    }
   };
 
-  const handleDeleteTicket = (id: string) => {
-    setTickets(tickets.filter((tk) => tk.id !== id));
-    setSelectedTicket(null);
+  const handleDeleteTicket = async (id: string) => {
+    try {
+      await api.tickets.delete(id);
+      setSelectedTicket(null);
+      await fetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete ticket");
+    }
   };
 
-  // 如果选中了工单，显示对话视图
+  const handleUpdateStatus = async (id: string, status: TicketStatus) => {
+    try {
+      await api.tickets.update(id, { status });
+      await fetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Failed to update status");
+    }
+  };
+
+  const handleUpdatePriority = async (id: string, priority: TicketPriority) => {
+    try {
+      await api.tickets.update(id, { priority });
+      await fetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Failed to update priority");
+    }
+  };
+
   if (selectedTicket) {
     return (
       <TicketConversation
@@ -84,14 +112,8 @@ export default function TicketList() {
         onBack={() => setSelectedTicket(null)}
         onCloseTicket={handleCloseTicket}
         onDeleteTicket={handleDeleteTicket}
-        onUpdateStatus={(id, status) => {
-          const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-          setTickets(tickets.map(tk => tk.id === id ? { ...tk, status, updatedAt: now } : tk));
-        }}
-        onUpdatePriority={(id, priority) => {
-          const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-          setTickets(tickets.map(tk => tk.id === id ? { ...tk, priority, updatedAt: now } : tk));
-        }}
+        onUpdateStatus={handleUpdateStatus}
+        onUpdatePriority={handleUpdatePriority}
       />
     );
   }
@@ -117,7 +139,9 @@ export default function TicketList() {
         ]}
       />
 
-      {paged.length === 0 ? (
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>
+      ) : paged.length === 0 ? (
         <Empty title={t("common.noData")} />
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -138,7 +162,7 @@ export default function TicketList() {
                   <Table.Cell><Text bold>{tk.title}</Text></Table.Cell>
                   <Table.Cell><Badge variant={statusVariant[tk.status]}>{statusLabel(tk.status)}</Badge></Table.Cell>
                   <Table.Cell><Badge variant={priorityVariant[tk.priority]}>{t(`priority.${tk.priority}`)}</Badge></Table.Cell>
-                  <Table.Cell><Text size="sm">{tk.updatedAt}</Text></Table.Cell>
+                  <Table.Cell><Text size="sm">{tk.updated_at}</Text></Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>

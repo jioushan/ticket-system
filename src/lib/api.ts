@@ -30,6 +30,8 @@ export const api = {
   tickets: {
     list: () => request("/api/tickets"),
     get: (id: string) => request(`/api/tickets/${id}`),
+    update: (id: string, data: { status?: string; priority?: string }) =>
+      request(`/api/tickets/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     create: (data: { title: string; description: string; priority: string }) =>
       request("/api/tickets", { method: "POST", body: JSON.stringify(data) }),
     addMessage: (ticketId: string, content: string) =>

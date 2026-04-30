@@ -1,68 +1,119 @@
-import { useState } from "react";
-import { Text, Input, InputArea, Button, Banner, Badge, Switch, Dialog, Table } from "@cloudflare/kumo";
+import { useState, useEffect, useCallback } from "react";
+import { Text, Input, Button, Banner, Badge, Switch, Dialog, Table } from "@cloudflare/kumo";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
+import { api } from "../../lib/api";
 
-interface MockUser {
-  id: string; username: string; email: string; role: "admin" | "user";
-  status: "active" | "disabled"; createdAt: string; lastLogin: string; lastIp: string;
+interface ApiUser {
+  id: string;
+  username: string;
+  email: string;
+  role: "admin" | "user";
+  status: "active" | "disabled";
+  created_at: string;
+  last_login_at: string | null;
+  last_login_ip: string | null;
 }
-
-const mockUsers: MockUser[] = [
-  { id: "u-1", username: "admin", email: "admin@jsmsr.com", role: "admin", status: "active", createdAt: "2026-01-01", lastLogin: "2026-05-01 10:30", lastIp: "127.0.0.1" },
-  { id: "u-2", username: "user1", email: "user1@jsmsr.com", role: "user", status: "active", createdAt: "2026-02-15", lastLogin: "2026-04-30 08:00", lastIp: "192.168.1.10" },
-  { id: "u-3", username: "user2", email: "user2@jsmsr.com", role: "user", status: "disabled", createdAt: "2026-03-01", lastLogin: "2026-04-20 15:00", lastIp: "10.0.0.5" },
-];
 
 export default function Settings() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Profile
-  const [username, setUsername] = useState(user?.username ?? "admin");
-  const [email, setEmail] = useState("admin@jsmsr.com");
+  const [username] = useState(user?.username ?? "");
+  const [email] = useState(user?.email ?? "");
 
   // Admin settings
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
-  const [turnstileSecretKey, setTurnstileSecretKey] = useState("");
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [allowedFormats, setAllowedFormats] = useState("zip,jpg,png");
   const [maxFileSize, setMaxFileSize] = useState("5");
 
-  // Email templates
-  const [newTicketSubject, setNewTicketSubject] = useState("[工單系統] 新工單: {title}");
-  const [newTicketBody, setNewTicketBody] = useState("<h2>新工單已建立</h2><p>工單編號: {ticket_id}</p><p>標題: {title}</p>");
-  const [replySubject, setReplySubject] = useState("[工單系統] 工單回覆: {title}");
-  const [replyBody, setReplyBody] = useState("<h2>工單有新回覆</h2><p>工單編號: {ticket_id}</p><p>回覆內容: {content}</p>");
-  const [closedSubject, setClosedSubject] = useState("[工單系統] 工單已關閉: {title}");
-  const [closedBody, setClosedBody] = useState("<h2>工單已關閉</h2><p>工單編號: {ticket_id}</p><p>標題: {title}</p>");
-
   // Users management
-  const [users, setUsers] = useState(mockUsers);
-  const [deleteUser, setDeleteUser] = useState<MockUser | null>(null);
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [deleteUser, setDeleteUser] = useState<ApiUser | null>(null);
 
-  const handleSave = () => {
-    // TODO: API call to save all settings
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const fetchSettings = useCallback(async () => {
+    try {
+      const data = await api.settings.get();
+      if (data.turnstile_enabled) setTurnstileEnabled(data.turnstile_enabled === "true");
+      if (data.turnstile_site_key) setTurnstileSiteKey(data.turnstile_site_key);
+      if (data.registration_enabled) setRegistrationEnabled(data.registration_enabled === "true");
+      if (data.allowed_formats) setAllowedFormats(data.allowed_formats);
+      if (data.max_file_size) setMaxFileSize(String(parseInt(data.max_file_size) / 1024 / 1024));
+    } catch (err) {
+      console.error("Failed to fetch settings:", err);
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const data = await api.users.list();
+      setUsers(data);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    Promise.all([fetchSettings(), fetchUsers()]).finally(() => setLoading(false));
+  }, [fetchSettings, fetchUsers]);
+
+  const handleSave = async () => {
+    try {
+      await api.settings.update({
+        turnstile_enabled: String(turnstileEnabled),
+        turnstile_site_key: turnstileSiteKey,
+        registration_enabled: String(registrationEnabled),
+        allowed_formats: allowedFormats,
+        max_file_size: String(parseInt(maxFileSize) * 1024 * 1024),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      alert(err.message || "Failed to save settings");
+    }
   };
 
-  const handleToggleUserStatus = (id: string) => {
-    setUsers(users.map(u => u.id === id ? { ...u, status: u.status === "active" ? "disabled" : "active" } : u));
+  const handleToggleUserStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "active" ? "disabled" : "active";
+    try {
+      await api.users.update(id, { status: newStatus });
+      setUsers(users.map(u => u.id === id ? { ...u, status: newStatus as "active" | "disabled" } : u));
+    } catch (err: any) {
+      alert(err.message || "Failed to update user");
+    }
   };
 
-  const handleToggleUserRole = (id: string) => {
-    setUsers(users.map(u => u.id === id ? { ...u, role: u.role === "admin" ? "user" : "admin" } : u));
+  const handleToggleUserRole = async (id: string, currentRole: string) => {
+    const newRole = currentRole === "admin" ? "user" : "admin";
+    try {
+      await api.users.update(id, { role: newRole });
+      setUsers(users.map(u => u.id === id ? { ...u, role: newRole as "admin" | "user" } : u));
+    } catch (err: any) {
+      alert(err.message || "Failed to update user");
+    }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!deleteUser) return;
-    setUsers(users.filter(u => u.id !== deleteUser.id));
-    setDeleteUser(null);
+    try {
+      await api.users.delete(deleteUser.id);
+      setUsers(users.filter(u => u.id !== deleteUser.id));
+      setDeleteUser(null);
+    } catch (err: any) {
+      alert(err.message || "Failed to delete user");
+    }
   };
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem", maxWidth: 800, width: "100%" }}>
@@ -72,17 +123,8 @@ export default function Settings() {
       <section>
         <Text variant="heading3" as="h2">{t("settings.profile")}</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-          <Input label={t("settings.username")} value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} />
-          <Input label={t("settings.email")} type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
-          <div>
-            <Text size="sm" variant="secondary">{t("settings.lastLogin")}</Text>
-            <Text>2026-05-01 10:30:00 (127.0.0.1)</Text>
-          </div>
-          <div>
-            <Text size="sm" variant="secondary">{t("settings.accountCreated")}</Text>
-            <Text>2026-01-01</Text>
-          </div>
-          <Button variant="secondary" onClick={() => {}}>{t("settings.resetPassword")}</Button>
+          <Input label={t("settings.username")} value={username} readOnly />
+          <Input label={t("settings.email")} type="email" value={email} readOnly />
         </div>
       </section>
 
@@ -110,14 +152,16 @@ export default function Settings() {
                       <Badge variant={u.role === "admin" ? "blue" : "neutral"}>{u.role}</Badge>
                     </Table.Cell>
                     <Table.Cell>
-                      <Badge variant={u.status === "active" ? "success" : "error"}>{u.status === "active" ? t("settings.active") : t("settings.disabled")}</Badge>
+                      <Badge variant={u.status === "active" ? "green" : "red"}>
+                        {u.status === "active" ? t("settings.active") : t("settings.disabled")}
+                      </Badge>
                     </Table.Cell>
                     <Table.Cell>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleUserStatus(u.id)}>
+                        <Button size="sm" variant="outline" onClick={() => handleToggleUserStatus(u.id, u.status)}>
                           {u.status === "active" ? t("settings.disabled") : t("settings.enabled")}
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleUserRole(u.id)}>
+                        <Button size="sm" variant="outline" onClick={() => handleToggleUserRole(u.id, u.role)}>
                           {u.role === "admin" ? "→ User" : "→ Admin"}
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => setDeleteUser(u)}>
@@ -129,28 +173,6 @@ export default function Settings() {
                 ))}
               </Table.Body>
             </Table>
-          </div>
-        </section>
-      )}
-
-      {/* Admin: Email Templates */}
-      {isAdmin && (
-        <section>
-          <Text variant="heading3" as="h2">{t("settings.emailTemplates")}</Text>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", marginTop: "1rem" }}>
-            {[
-              { label: t("settings.newTicketTemplate"), subject: newTicketSubject, setSubject: setNewTicketSubject, body: newTicketBody, setBody: setNewTicketBody },
-              { label: t("settings.replyTemplate"), subject: replySubject, setSubject: setReplySubject, body: replyBody, setBody: setReplyBody },
-              { label: t("settings.closedTemplate"), subject: closedSubject, setSubject: setClosedSubject, body: closedBody, setBody: setClosedBody },
-            ].map((tpl) => (
-              <div key={tpl.label} style={{ padding: "1rem", borderRadius: 8, border: "1px solid var(--color-kumo-hairline)" }}>
-                <Text bold>{tpl.label}</Text>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <Input label={t("settings.subject")} value={tpl.subject} onChange={(e: React.ChangeEvent<HTMLInputElement>) => tpl.setSubject(e.target.value)} />
-                  <InputArea label={t("settings.body")} value={tpl.body} onValueChange={tpl.setBody} rows={3} />
-                </div>
-              </div>
-            ))}
           </div>
         </section>
       )}
@@ -169,7 +191,6 @@ export default function Settings() {
               {turnstileEnabled && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
                   <Input label={t("settings.siteKey")} value={turnstileSiteKey} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTurnstileSiteKey(e.target.value)} />
-                  <Input label={t("settings.secretKey")} value={turnstileSecretKey} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTurnstileSecretKey(e.target.value)} />
                 </div>
               )}
             </div>

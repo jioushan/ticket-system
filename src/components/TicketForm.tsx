@@ -1,27 +1,25 @@
 import { useState } from "react";
 import { Input, InputArea, Select, Button } from "@cloudflare/kumo";
-import type { Ticket, TicketPriority } from "../types";
+import type { TicketPriority } from "../types";
 
 interface TicketFormProps {
-  ticket?: Ticket;
-  onSubmit: (data: { title: string; description: string; priority: TicketPriority; assignee: string }) => void;
+  onSubmit: (data: { title: string; description: string; priority: TicketPriority }) => void;
   onCancel: () => void;
 }
 
-export default function TicketForm({ ticket, onSubmit, onCancel }: TicketFormProps) {
-  const [title, setTitle] = useState(ticket?.title ?? "");
-  const [description, setDescription] = useState(ticket?.description ?? "");
-  const [priority, setPriority] = useState<TicketPriority>(ticket?.priority ?? "medium");
-  const [assignee, setAssignee] = useState(ticket?.assignee ?? "");
+export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<TicketPriority>("medium");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit({ title, description, priority, assignee });
+    onSubmit({ title, description, priority });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <Input
         label="工單標題"
         placeholder="請輸入工單標題"
@@ -42,23 +40,17 @@ export default function TicketForm({ ticket, onSubmit, onCancel }: TicketFormPro
         label="優先級"
         value={priority}
         onValueChange={(v) => { if (v) setPriority(v as TicketPriority); }}
-      >
-        <Select.Option value="low">低</Select.Option>
-        <Select.Option value="medium">中</Select.Option>
-        <Select.Option value="high">高</Select.Option>
-        <Select.Option value="urgent">緊急</Select.Option>
-      </Select>
-
-      <Input
-        label="指派給"
-        placeholder="請輸入負責人"
-        value={assignee}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignee(e.target.value)}
+        items={{
+          low: "低",
+          medium: "中",
+          high: "高",
+          urgent: "緊急",
+        }}
       />
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
         <Button variant="secondary" onClick={onCancel}>取消</Button>
-        <Button type="submit" variant="primary">{ticket ? "更新" : "建立"}</Button>
+        <Button type="submit" variant="primary">建立</Button>
       </div>
     </form>
   );
