@@ -60,6 +60,21 @@ export const api = {
     },
     addMessage: (ticketId: string, content: string) =>
       request(`/api/tickets/${ticketId}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
+    addMessageWithFile: (ticketId: string, content: string, file?: File) => {
+      const formData = new FormData();
+      if (content) formData.append("content", content);
+      if (file) formData.append("file", file);
+      const token = localStorage.getItem("auth_token");
+      return fetch(`${API_BASE}/api/tickets/${ticketId}/messages`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Request failed");
+        return data;
+      });
+    },
     close: (id: string) => request(`/api/tickets/${id}/close`, { method: "PUT" }),
     delete: (id: string) => request(`/api/tickets/${id}`, { method: "DELETE" }),
     signalTyping: (id: string) => request(`/api/tickets/${id}/typing`, { method: "POST" }),
@@ -67,7 +82,7 @@ export const api = {
   },
   stats: () => request("/api/stats"),
   attachments: {
-    downloadUrl: (key: string) => `${API_BASE}/api/attachments/${encodeURIComponent(key)}`,
+    downloadUrl: (key: string, token: string) => `${API_BASE}/api/attachments/${encodeURIComponent(key)}?token=${token}`,
   },
   settings: {
     get: () => request("/api/settings"),

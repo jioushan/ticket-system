@@ -34,7 +34,7 @@ export default function TicketConversation({
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<TicketStatus>(ticket.status);
@@ -74,21 +74,23 @@ export default function TicketConversation({
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !pendingFile) || sending) return;
     setSending(true);
     try {
-      const res = await api.tickets.addMessage(ticket.id, input.trim());
+      const res = await api.tickets.addMessageWithFile(ticket.id, input.trim(), pendingFile || undefined);
       const newMsg: TicketMessage = {
         id: res.id,
         ticket_id: ticket.id,
         user_id: currentUserId,
         username: currentUserRole === "admin" ? "Admin" : "User",
         role: currentUserRole,
-        content: input.trim(),
+        content: input.trim() || "[附件]",
         created_at: res.created_at,
+        attachments: res.attachment ? [res.attachment] : [],
       };
       setMessages([...messages, newMsg]);
       setInput("");
+      setPendingFile(null);
       setShowEmoji(false);
     } catch (err: any) {
       alert(err.message || "Failed to send message");
@@ -97,19 +99,11 @@ export default function TicketConversation({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
-    try {
-      await api.tickets.upload(ticket.id, file);
-      await fetchMessages(); // Refresh to show attachment
-    } catch (err: any) {
-      alert(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleInputChange = (val: string) => {
@@ -251,7 +245,7 @@ export default function TicketConversation({
                       {msg.attachments.map((att) => (
                         <a
                           key={att.id}
-                          href={api.attachments.downloadUrl(att.r2_key)}
+                          href={api.attachments.downloadUrl(att.r2_key, localStorage.getItem("auth_token") || "")}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
@@ -308,7 +302,7 @@ export default function TicketConversation({
               type="file"
               ref={fileInputRef}
               style={{ display: "none" }}
-              onChange={handleFileUpload}
+              onChange={handleFileSelect}
             />
             <Button
               variant="ghost"
@@ -316,7 +310,6 @@ export default function TicketConversation({
               shape="square"
               aria-label={t("common.attachFile")}
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
             >
               <Paperclip />
             </Button>
@@ -333,9 +326,15 @@ export default function TicketConversation({
               <PaperPlaneRight />
             </Button>
           </div>
+          {pendingFile && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: "var(--color-kumo-fill)" }}>
+              <Paperclip size={12} />
+              <span>{pendingFile.name} ({formatFileSize(pendingFile.size)})</span>
+              <button onClick={() => setPendingFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 14, padding: "0 4px" }}>×</button>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.6 }}>
             {typingUser ? <span>{typingUser} 正在輸入...</span> : <span />}
-            {uploading && <span>上傳中...</span>}
           </div>
         </div>
       )}
