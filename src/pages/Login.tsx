@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Input, SensitiveInput, Banner } from "@cloudflare/kumo";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
@@ -7,6 +7,9 @@ import LanguageSwitch from "../components/LanguageSwitch";
 import { useTheme } from "../context/ThemeContext";
 import { Sun, Moon, ArrowLeft } from "@phosphor-icons/react";
 import { LOGIN_BG_URL } from "../config";
+import TurnstileWidget from "../components/TurnstileWidget";
+
+const LOGO_URL = "https://www.jsmsr.com/v3/assets/img/favicon.svg";
 
 type Panel = "login" | "register" | "forgot";
 
@@ -27,9 +30,22 @@ export default function Login() {
   const [regConfirm, setRegConfirm] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
 
+  // Turnstile
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  useEffect(() => {
+    api.publicSettings().then((data: any) => {
+      setTurnstileEnabled(data.turnstile_enabled);
+      setTurnstileSiteKey(data.turnstile_site_key);
+    }).catch(() => {});
+  }, []);
+
   const switchPanel = (target: Panel) => {
     setError("");
     setSuccess("");
+    setTurnstileToken("");
     setPanel(target);
   };
 
@@ -47,10 +63,11 @@ export default function Login() {
     e.preventDefault();
     if (!regUsername || !regEmail || !regPassword) return;
     if (regPassword !== regConfirm) { setError("密碼不一致"); return; }
+    if (turnstileEnabled && !turnstileToken) { setError("請完成驗證"); return; }
     setError("");
     setLoading(true);
     try {
-      await api.auth.register(regUsername, regEmail, regPassword);
+      await api.auth.register(regUsername, regEmail, regPassword, turnstileToken || undefined);
       setSuccess(t("auth.registerSuccess"));
       setTimeout(() => switchPanel("login"), 1500);
     } catch (err: any) {
@@ -120,6 +137,7 @@ export default function Login() {
         {visible("login") && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div style={{ textAlign: "center" }}>
+              <img src={LOGO_URL} alt="Logo" style={{ width: 48, height: 48, marginBottom: 8 }} />
               <h1 style={{
                 fontSize: "1.5rem", fontWeight: 700, margin: 0,
                 color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",
@@ -146,6 +164,7 @@ export default function Login() {
         {visible("register") && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div style={{ textAlign: "center" }}>
+              <img src={LOGO_URL} alt="Logo" style={{ width: 48, height: 48, marginBottom: 8 }} />
               <h1 style={{
                 fontSize: "1.5rem", fontWeight: 700, margin: 0,
                 color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",
@@ -158,6 +177,13 @@ export default function Login() {
               <Input label={t("auth.email")} type="email" value={regEmail} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmail(e.target.value)} />
               <SensitiveInput label={t("auth.password")} value={regPassword} onValueChange={setRegPassword} />
               <SensitiveInput label={t("auth.confirmPassword")} value={regConfirm} onValueChange={setRegConfirm} />
+              {turnstileEnabled && turnstileSiteKey && (
+                <TurnstileWidget
+                  siteKey={turnstileSiteKey}
+                  onVerify={setTurnstileToken}
+                  onExpire={() => setTurnstileToken("")}
+                />
+              )}
               <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.submit")}</Button>
             </form>
             <Button variant="secondary" size="lg" icon={<ArrowLeft />} onClick={() => switchPanel("login")}>
@@ -170,6 +196,7 @@ export default function Login() {
         {visible("forgot") && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div style={{ textAlign: "center" }}>
+              <img src={LOGO_URL} alt="Logo" style={{ width: 48, height: 48, marginBottom: 8 }} />
               <h1 style={{
                 fontSize: "1.5rem", fontWeight: 700, margin: 0,
                 color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",

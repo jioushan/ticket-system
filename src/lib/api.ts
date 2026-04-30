@@ -15,11 +15,12 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
 }
 
 export const api = {
+  publicSettings: () => request("/api/public-settings"),
   auth: {
     login: (username: string, password: string) =>
       request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-    register: (username: string, email: string, password: string) =>
-      request("/api/auth/register", { method: "POST", body: JSON.stringify({ username, email, password }) }),
+    register: (username: string, email: string, password: string, turnstileToken?: string) =>
+      request("/api/auth/register", { method: "POST", body: JSON.stringify({ username, email, password, turnstileToken }) }),
     logout: () => request("/api/auth/logout", { method: "POST" }),
     forgotPassword: (email: string) =>
       request("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
@@ -32,14 +33,33 @@ export const api = {
     get: (id: string) => request(`/api/tickets/${id}`),
     update: (id: string, data: { status?: string; priority?: string }) =>
       request(`/api/tickets/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    create: (data: { title: string; description: string; priority: string }) =>
+    create: (data: { title: string; description: string; priority: string; turnstileToken?: string }) =>
       request("/api/tickets", { method: "POST", body: JSON.stringify(data) }),
+    upload: (ticketId: string, file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = localStorage.getItem("auth_token");
+      return fetch(`${API_BASE}/api/tickets/${ticketId}/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+        return data;
+      });
+    },
     addMessage: (ticketId: string, content: string) =>
       request(`/api/tickets/${ticketId}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
     close: (id: string) => request(`/api/tickets/${id}/close`, { method: "PUT" }),
     delete: (id: string) => request(`/api/tickets/${id}`, { method: "DELETE" }),
+    signalTyping: (id: string) => request(`/api/tickets/${id}/typing`, { method: "POST" }),
+    checkTyping: (id: string) => request(`/api/tickets/${id}/typing`),
   },
   stats: () => request("/api/stats"),
+  attachments: {
+    downloadUrl: (key: string) => `${API_BASE}/api/attachments/${encodeURIComponent(key)}`,
+  },
   settings: {
     get: () => request("/api/settings"),
     update: (data: Record<string, string>) =>

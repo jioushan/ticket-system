@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input, InputArea, Select, Button } from "@cloudflare/kumo";
+import { api } from "../lib/api";
+import TurnstileWidget from "./TurnstileWidget";
 import type { TicketPriority } from "../types";
 
 interface TicketFormProps {
-  onSubmit: (data: { title: string; description: string; priority: TicketPriority }) => void;
+  onSubmit: (data: { title: string; description: string; priority: TicketPriority; turnstileToken?: string }) => void;
   onCancel: () => void;
 }
 
@@ -11,11 +13,21 @@ export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  useEffect(() => {
+    api.publicSettings().then((data: any) => {
+      setTurnstileEnabled(data.turnstile_enabled);
+      setTurnstileSiteKey(data.turnstile_site_key);
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit({ title, description, priority });
+    onSubmit({ title, description, priority, turnstileToken: turnstileToken || undefined });
   };
 
   return (
@@ -47,6 +59,14 @@ export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
           urgent: "緊急",
         }}
       />
+
+      {turnstileEnabled && turnstileSiteKey && (
+        <TurnstileWidget
+          siteKey={turnstileSiteKey}
+          onVerify={setTurnstileToken}
+          onExpire={() => setTurnstileToken("")}
+        />
+      )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
         <Button variant="secondary" onClick={onCancel}>取消</Button>

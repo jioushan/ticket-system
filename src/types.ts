@@ -16,6 +16,14 @@ export interface Ticket {
   updated_at: string;
 }
 
+export interface Attachment {
+  id: string;
+  filename: string;
+  r2_key: string;
+  size: number;
+  type: string;
+}
+
 export interface TicketMessage {
   id: string;
   ticket_id: string;
@@ -23,6 +31,7 @@ export interface TicketMessage {
   username: string;
   role: "admin" | "user";
   content: string;
+  attachments?: Attachment[];
   created_at: string;
 }
 

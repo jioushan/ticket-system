@@ -55,9 +55,9 @@ export default function TicketList() {
 
   const statusLabel = (s: TicketStatus) => t(`ticket.${s === "in_progress" ? "inProgress" : s}`);
 
-  const handleCreate = async (data: { title: string; description: string; priority: TicketPriority }) => {
+  const handleCreate = async (data: { title: string; description: string; priority: TicketPriority; turnstileToken?: string }) => {
     try {
-      await api.tickets.create({ title: data.title, description: data.description, priority: data.priority });
+      await api.tickets.create({ title: data.title, description: data.description, priority: data.priority, turnstileToken: data.turnstileToken });
       setCreateOpen(false);
       await fetchTickets();
     } catch (err: any) {

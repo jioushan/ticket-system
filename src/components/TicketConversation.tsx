@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button, Text, Badge, InputArea, Dialog, Select } from "@cloudflare/kumo";
-import { PaperPlaneRight, Smiley, ArrowLeft, Trash, CheckCircle } from "@phosphor-icons/react";
+import { PaperPlaneRight, Smiley, ArrowLeft, Trash, CheckCircle, Paperclip } from "@phosphor-icons/react";
 import { useTranslation } from "../i18n/I18nContext";
 import { api } from "../lib/api";
 import type { Ticket, TicketStatus, TicketPriority, TicketMessage } from "../types";
@@ -34,11 +34,15 @@ export default function TicketConversation({
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<TicketStatus>(ticket.status);
   const [currentPriority, setCurrentPriority] = useState<TicketPriority>(ticket.priority);
+  const [typingUser, setTypingUser] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastTypingSignalRef = useRef(0);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -52,6 +56,18 @@ export default function TicketConversation({
   }, [ticket.id]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
+
+  // Poll typing status
+  useEffect(() => {
+    if (currentStatus === "closed") return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.tickets.checkTyping(ticket.id);
+        setTypingUser(data.typing?.username || null);
+      } catch {}
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [ticket.id, currentStatus]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,6 +97,31 @@ export default function TicketConversation({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await api.tickets.upload(ticket.id, file);
+      await fetchMessages(); // Refresh to show attachment
+    } catch (err: any) {
+      alert(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleInputChange = (val: string) => {
+    setInput(val);
+    // Signal typing (debounced - at most once per 2 seconds)
+    const now = Date.now();
+    if (now - lastTypingSignalRef.current > 2000) {
+      lastTypingSignalRef.current = now;
+      api.tickets.signalTyping(ticket.id).catch(() => {});
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -100,6 +141,12 @@ export default function TicketConversation({
     const newPriority = val as TicketPriority;
     setCurrentPriority(newPriority);
     onUpdatePriority?.(ticket.id, newPriority);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
   };
 
   return (
@@ -199,6 +246,28 @@ export default function TicketConversation({
                   <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                     <Text size="sm">{msg.content}</Text>
                   </div>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {msg.attachments.map((att) => (
+                        <a
+                          key={att.id}
+                          href={api.attachments.downloadUrl(att.r2_key)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 12,
+                            color: isAdmin ? "#bfdbfe" : "#3b82f6",
+                            textDecoration: "underline",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Paperclip size={12} /> {att.filename} ({formatFileSize(att.size)})
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, marginTop: 4, opacity: 0.6, textAlign: "right" }}>
                     {msg.created_at}
                   </div>
@@ -235,11 +304,27 @@ export default function TicketConversation({
               onClick={() => setShowEmoji(!showEmoji)}>
               <Smiley />
             </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              shape="square"
+              aria-label={t("common.attachFile")}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <Paperclip />
+            </Button>
             <div style={{ flex: 1 }}>
               <InputArea
                 placeholder={t("ticket.reply") + "..."}
                 value={input}
-                onValueChange={setInput}
+                onValueChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 rows={2}
               />
@@ -247,6 +332,10 @@ export default function TicketConversation({
             <Button variant="primary" size="sm" shape="square" aria-label="Send" onClick={handleSend} disabled={sending}>
               <PaperPlaneRight />
             </Button>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.6 }}>
+            {typingUser ? <span>{typingUser} 正在輸入...</span> : <span />}
+            {uploading && <span>上傳中...</span>}
           </div>
         </div>
       )}
