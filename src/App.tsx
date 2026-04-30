@@ -4,6 +4,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { I18nProvider } from "./i18n/I18nContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import ResetPassword from "./pages/ResetPassword";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null as string | null };
@@ -25,6 +26,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+  if (window.location.pathname === "/reset-password") return <ResetPassword />;
   return isAuthenticated ? <Dashboard /> : <Login />;
 }
 
