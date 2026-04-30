@@ -35,29 +35,43 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire }: Turnsti
   useEffect(() => {
     if (!siteKey || !containerRef.current) return;
 
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     const renderWidget = () => {
-      if (!window.turnstile || !containerRef.current) return;
+      if (cancelled || !window.turnstile || !containerRef.current) return;
       cleanup();
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        callback: (token: string) => onVerifyRef.current(token),
-        "expired-callback": () => onExpireRef.current?.(),
-      });
+      try {
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          callback: (token: string) => {
+            if (!cancelled) onVerifyRef.current(token);
+          },
+          "expired-callback": () => {
+            if (!cancelled) onExpireRef.current?.();
+          },
+        });
+      } catch (e) {
+        console.error("Turnstile render error:", e);
+      }
     };
 
     if (window.turnstile) {
       renderWidget();
     } else {
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (window.turnstile) {
-          clearInterval(interval);
+          if (interval) clearInterval(interval);
           renderWidget();
         }
-      }, 100);
-      return () => clearInterval(interval);
+      }, 200);
     }
 
-    return cleanup;
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      cleanup();
+    };
   }, [siteKey, cleanup]);
 
   return <div ref={containerRef} />;

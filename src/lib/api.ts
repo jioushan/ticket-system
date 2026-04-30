@@ -71,4 +71,5 @@ export const api = {
       request(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => request(`/api/users/${id}`, { method: "DELETE" }),
   },
+  testEmail: (email: string) => request("/api/test-email", { method: "POST", body: JSON.stringify({ email }) }),
 };

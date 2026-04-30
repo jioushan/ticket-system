@@ -37,6 +37,11 @@ export default function Settings() {
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [deleteUser, setDeleteUser] = useState<ApiUser | null>(null);
 
+  // Test email
+  const [testEmail, setTestEmail] = useState("");
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   const fetchSettings = useCallback(async () => {
     try {
       const data = await api.settings.get();
@@ -63,6 +68,20 @@ export default function Settings() {
   useEffect(() => {
     Promise.all([fetchSettings(), fetchUsers()]).finally(() => setLoading(false));
   }, [fetchSettings, fetchUsers]);
+
+  const handleTestEmail = async () => {
+    if (!testEmail) return;
+    setTestEmailSending(true);
+    setTestEmailResult(null);
+    try {
+      await api.testEmail(testEmail);
+      setTestEmailResult({ ok: true, msg: "測試郵件已發送，請檢查收件箱" });
+    } catch (err: any) {
+      setTestEmailResult({ ok: false, msg: err.message || "發送失敗" });
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -219,6 +238,39 @@ export default function Settings() {
       <div style={{ paddingTop: "1rem", borderTop: "1px solid var(--color-kumo-hairline)" }}>
         <Button variant="primary" size="lg" onClick={handleSave}>{t("settings.save")}</Button>
       </div>
+
+      {/* Admin: Test Email */}
+      {isAdmin && (
+        <section>
+          <Text variant="heading3" as="h2">郵件測試</Text>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}>
+                <Input
+                  label="測試收件箱"
+                  type="email"
+                  placeholder="輸入郵箱地址"
+                  value={testEmail}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTestEmail(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                loading={testEmailSending}
+                onClick={handleTestEmail}
+                disabled={!testEmail}
+              >
+                發送測試
+              </Button>
+            </div>
+            {testEmailResult && (
+              <Banner variant={testEmailResult.ok ? "default" : "error"}>
+                {testEmailResult.msg}
+              </Banner>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Delete user dialog */}
       <Dialog.Root open={!!deleteUser} onOpenChange={(open) => { if (!open) setDeleteUser(null); }}>
