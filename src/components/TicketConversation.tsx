@@ -307,6 +307,7 @@ export default function TicketConversation({
                   alignItems: "flex-end",
                   gap: 6,
                   marginTop: showAvatar ? "0.5rem" : 2,
+                  maxWidth: "100%",
                 }}>
                   {/* Avatar (other's messages, left side) */}
                   {!isMine && (
