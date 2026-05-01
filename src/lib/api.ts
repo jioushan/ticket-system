@@ -29,6 +29,8 @@ export const api = {
     me: () => request("/api/auth/me"),
     changePassword: (currentPassword: string, newPassword: string) =>
       request("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
+    updateLocale: (locale: string) =>
+      request("/api/auth/locale", { method: "PUT", body: JSON.stringify({ locale }) }),
     verify2fa: (tempToken: string, code: string) =>
       request("/api/auth/2fa/verify", { method: "POST", body: JSON.stringify({ tempToken, code }) }),
     verify2faPasskey: (tempToken: string, passkeyResponse: any, challengeToken: string) =>

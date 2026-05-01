@@ -24,6 +24,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback((l: Locale) => {
     localStorage.setItem("locale", l);
     setLocaleState(l);
+    // Persist to backend (fire-and-forget)
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      const API_BASE = import.meta.env.VITE_API_BASE || "";
+      fetch(`${API_BASE}/api/auth/locale`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ locale: l }),
+      }).catch(() => {});
+    }
   }, []);
 
   const t = useCallback((key: string, params?: Record<string, string>): string => {
