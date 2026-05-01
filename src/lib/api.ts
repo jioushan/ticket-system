@@ -92,7 +92,7 @@ export const api = {
   },
   stats: () => request("/api/stats"),
   attachments: {
-    downloadUrl: (key: string, token: string) => `${API_BASE}/api/attachments/${encodeURIComponent(key)}?token=${token}`,
+    downloadUrl: (key: string, token: string) => `${API_BASE}/api/attachments/${key.split("/").map(encodeURIComponent).join("/")}?token=${token}`,
   },
   settings: {
     get: () => request("/api/settings"),
