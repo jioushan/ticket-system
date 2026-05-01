@@ -3,6 +3,7 @@ import { Text, Input, SensitiveInput, Button, Banner, Badge, Switch, Dialog, Tab
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
+import { startRegistration } from "@simplewebauthn/browser";
 
 interface ApiUser {
   id: string;
@@ -56,6 +57,11 @@ export default function Settings() {
   const [twoFALoading, setTwoFALoading] = useState(false);
   const [twoFAResult, setTwoFAResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Passkey
+  const [passkeys, setPasskeys] = useState<{ id: string; credential_id: string; created_at: string }[]>([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyResult, setPasskeyResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   const fetchSettings = useCallback(async () => {
     try {
       const data = await api.settings.get();
@@ -79,13 +85,20 @@ export default function Settings() {
     }
   }, [isAdmin]);
 
+  const fetchPasskeys = useCallback(async () => {
+    try {
+      const data = await api.auth.passkeyList();
+      setPasskeys(data);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     // Check 2FA status from user profile
     api.auth.me().then((data: any) => {
       setHas2fa(!!data.has2fa);
     }).catch(() => {});
-    Promise.all([fetchSettings(), fetchUsers()]).finally(() => setLoading(false));
-  }, [fetchSettings, fetchUsers]);
+    Promise.all([fetchSettings(), fetchUsers(), fetchPasskeys()]).finally(() => setLoading(false));
+  }, [fetchSettings, fetchUsers, fetchPasskeys]);
 
   const handleSetup2FA = async () => {
     setTwoFALoading(true);
@@ -130,6 +143,31 @@ export default function Settings() {
       setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
     } finally {
       setTwoFALoading(false);
+    }
+  };
+
+  const handleRegisterPasskey = async () => {
+    setPasskeyLoading(true);
+    setPasskeyResult(null);
+    try {
+      const { options, challengeToken } = await api.auth.passkeyRegisterOptions();
+      const response = await startRegistration({ optionsJSON: options });
+      await api.auth.passkeyRegisterVerify(response, challengeToken);
+      setPasskeyResult({ ok: true, msg: "Passkey 已註冊" });
+      await fetchPasskeys();
+    } catch (err: any) {
+      setPasskeyResult({ ok: false, msg: err.message || "註冊失敗" });
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const handleDeletePasskey = async (id: string) => {
+    try {
+      await api.auth.passkeyDelete(id);
+      setPasskeys(passkeys.filter(p => p.id !== id));
+    } catch (err: any) {
+      alert(err.message || "刪除失敗");
     }
   };
 
@@ -299,6 +337,31 @@ export default function Settings() {
           {twoFAResult && (
             <Banner variant={twoFAResult.ok ? "default" : "error"}>{twoFAResult.msg}</Banner>
           )}
+        </div>
+      </section>
+
+      {/* Passkey */}
+      <section>
+        <Text variant="heading3" as="h2">Passkey（通行密鑰）</Text>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+          <Text size="sm" variant="secondary">使用指紋、Face ID 或硬體安全金鑰登入，無需輸入密碼。</Text>
+          {passkeys.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {passkeys.map((pk) => (
+                <div key={pk.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-kumo-hairline)" }}>
+                  <div>
+                    <Text size="sm" bold>{pk.credential_id.slice(0, 20)}...</Text>
+                    <Text size="sm" variant="secondary">註冊於 {pk.created_at}</Text>
+                  </div>
+                  <Button size="sm" variant="destructive" onClick={() => handleDeletePasskey(pk.id)}>刪除</Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {passkeyResult && <Banner variant={passkeyResult.ok ? "default" : "error"}>{passkeyResult.msg}</Banner>}
+          <Button variant="secondary" onClick={handleRegisterPasskey} loading={passkeyLoading}>
+            註冊新 Passkey
+          </Button>
         </div>
       </section>
 

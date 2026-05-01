@@ -5,9 +5,10 @@ import { api } from "../lib/api";
 import { useTranslation } from "../i18n/I18nContext";
 import LanguageSwitch from "../components/LanguageSwitch";
 import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, ArrowLeft } from "@phosphor-icons/react";
+import { Sun, Moon, ArrowLeft, Fingerprint } from "@phosphor-icons/react";
 import { LOGIN_BG_URL } from "../config";
 import TurnstileWidget from "../components/TurnstileWidget";
+import { startAuthentication } from "@simplewebauthn/browser";
 
 const LOGO_URL = "https://www.jsmsr.com/v3/assets/img/favicon.svg";
 
@@ -79,6 +80,21 @@ export default function Login() {
       completeLogin(data.token, data.user);
     } catch { setError("驗證碼錯誤"); }
     finally { setLoading(false); }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const { options, challengeToken } = await api.auth.passkeyLoginOptions(username || undefined);
+      const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false });
+      const data = await api.auth.passkeyLoginVerify(response, challengeToken);
+      completeLogin(data.token, data.user);
+    } catch (err: any) {
+      setError(err.message || "Passkey 驗證失敗");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -174,6 +190,9 @@ export default function Login() {
                   <SensitiveInput label={t("auth.password")} value={password} onValueChange={setPassword} />
                   <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
                 </form>
+                <Button variant="secondary" size="lg" icon={<Fingerprint />} onClick={handlePasskeyLogin} loading={loading}>
+                  使用 Passkey 登入
+                </Button>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <button type="button" className="text-link-btn" onClick={() => switchPanel("register")}>
                     {t("auth.register")}

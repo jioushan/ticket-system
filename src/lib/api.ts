@@ -36,6 +36,16 @@ export const api = {
       request("/api/auth/2fa/enable", { method: "POST", body: JSON.stringify({ code }) }),
     disable2fa: (code: string) =>
       request("/api/auth/2fa/disable", { method: "POST", body: JSON.stringify({ code }) }),
+    passkeyRegisterOptions: () =>
+      request("/api/auth/passkey/register/options", { method: "POST" }),
+    passkeyRegisterVerify: (response: any, challengeToken: string) =>
+      request("/api/auth/passkey/register/verify", { method: "POST", body: JSON.stringify({ response, challengeToken }) }),
+    passkeyLoginOptions: (username?: string) =>
+      request("/api/auth/passkey/login/options", { method: "POST", body: JSON.stringify({ username }) }),
+    passkeyLoginVerify: (response: any, challengeToken: string) =>
+      request("/api/auth/passkey/login/verify", { method: "POST", body: JSON.stringify({ response, challengeToken }) }),
+    passkeyList: () => request("/api/auth/passkey/list"),
+    passkeyDelete: (id: string) => request(`/api/auth/passkey/${id}`, { method: "DELETE" }),
   },
   tickets: {
     list: () => request("/api/tickets"),
