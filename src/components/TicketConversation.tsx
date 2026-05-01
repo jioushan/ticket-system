@@ -320,36 +320,31 @@ export default function TicketConversation({
                     </div>
                   )}
 
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
-                    {/* Username */}
+                  <div className={`chat-bubble-wrap ${isMine ? "chat-bubble-wrap-end" : ""}`}>
                     {showName && !isMine && (
                       <div style={{ marginBottom: 2, marginLeft: 4, opacity: 0.7 }}>
                         <Text size="xs" bold>{msg.username}</Text>
                       </div>
                     )}
-
-                    {/* Bubble */}
-                    <div className="chat-bubble-wrap">
-                      <div className={`chat-bubble ${isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
-                        <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {msg.attachments.map((att) => (
-                              <a
-                                key={att.id}
-                                href={api.attachments.downloadUrl(att.r2_key, localStorage.getItem("auth_token") || "")}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`chat-attachment ${isMine ? "chat-attachment-mine" : "chat-attachment-other"}`}
-                              >
-                                <Paperclip size={12} /> {att.filename} ({formatFileSize(att.size)})
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                        <div style={{ fontSize: 10, marginTop: 3, opacity: 0.55, textAlign: "right", whiteSpace: "nowrap" }}>
-                          {formatTime(msg.created_at)}
+                    <div className={`chat-bubble ${isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
+                      <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {msg.attachments.map((att) => (
+                            <a
+                              key={att.id}
+                              href={api.attachments.downloadUrl(att.r2_key, localStorage.getItem("auth_token") || "")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`chat-attachment ${isMine ? "chat-attachment-mine" : "chat-attachment-other"}`}
+                            >
+                              <Paperclip size={12} /> {att.filename} ({formatFileSize(att.size)})
+                            </a>
+                          ))}
                         </div>
+                      )}
+                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.55, textAlign: "right", whiteSpace: "nowrap" }}>
+                        {formatTime(msg.created_at)}
                       </div>
                     </div>
                   </div>

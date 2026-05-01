@@ -138,7 +138,12 @@ textarea {
 /* Chat bubble wrapper - controls max width */
 .chat-bubble-wrap {
   max-width: 70%;
+  width: fit-content;
   min-width: 0;
+}
+
+.chat-bubble-wrap-end {
+  margin-left: auto;
 }
 
 @media (max-width: 768px) {
