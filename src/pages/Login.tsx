@@ -80,6 +80,7 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
+    if (turnstileEnabled && turnstileSiteKey && !turnstileToken) { setError(t("auth.turnstileRequired")); return; }
     setError("");
     setLoading(true);
     try {
@@ -91,7 +92,7 @@ export default function Login() {
         if (result.passkeyOptions) setPasskeyOptions(result.passkeyOptions);
         if (result.challengeToken) setPasskeyChallengeToken(result.challengeToken);
       }
-    } catch { setError(t("auth.loginError")); }
+    } catch (err: any) { setError(err.message || t("auth.loginError")); }
     finally { setLoading(false); }
   };
 
@@ -103,7 +104,7 @@ export default function Login() {
     try {
       const data = await api.auth.verify2fa(tempToken, twoFACode);
       completeLogin(data.token, data.user);
-    } catch { setError(t("auth.verificationError")); }
+    } catch (err: any) { setError(err.message || t("auth.verificationError")); }
     finally { setLoading(false); }
   };
 
@@ -219,7 +220,7 @@ export default function Login() {
                       onExpire={() => setTurnstileToken("")}
                     />
                   )}
-                  <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
+                  <Button type="submit" variant="secondary" size="lg" loading={loading}>{t("auth.login")}</Button>
                 </form>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <button type="button" className="text-link-btn" onClick={() => switchPanel("register")}>
@@ -237,7 +238,7 @@ export default function Login() {
                   <div style={{ marginTop: 8 }}><Text size="sm" variant="secondary">{t("auth.passkeyVerifying")}</Text></div>
                 </div>
                 {error && <Banner variant="error">{error}</Banner>}
-                <Button variant="primary" size="lg" icon={<Fingerprint />} onClick={handlePasskey2FA} loading={loading}>
+                <Button variant="secondary" size="lg" icon={<Fingerprint />} onClick={handlePasskey2FA} loading={loading}>
                   {t("auth.passkeyRetry")}
                 </Button>
                 <button type="button" className="text-link-btn" onClick={reset2FA}>
@@ -254,7 +255,7 @@ export default function Login() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     maxLength={6}
                   />
-                  <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.verify")}</Button>
+                  <Button type="submit" variant="secondary" size="lg" loading={loading}>{t("auth.verify")}</Button>
                 </form>
                 <button type="button" className="text-link-btn" onClick={reset2FA}>
                   {t("auth.backToLogin")}
@@ -294,7 +295,7 @@ export default function Login() {
                   </div>
                 )
               )}
-              <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.submit")}</Button>
+              <Button type="submit" variant="secondary" size="lg" loading={loading}>{t("auth.submit")}</Button>
             </form>
             <Button variant="secondary" size="lg" icon={<ArrowLeft />} onClick={() => switchPanel("login")}>
               {t("auth.backToLogin")}
@@ -316,7 +317,7 @@ export default function Login() {
             {success && <Banner variant="default">{success}</Banner>}
             <form onSubmit={handleForgot} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               <Input label={t("auth.email")} type="email" value={forgotEmail} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForgotEmail(e.target.value)} />
-              <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.sendResetLink")}</Button>
+              <Button type="submit" variant="secondary" size="lg" loading={loading}>{t("auth.sendResetLink")}</Button>
             </form>
             <Button variant="secondary" size="lg" icon={<ArrowLeft />} onClick={() => switchPanel("login")}>
               {t("auth.backToLogin")}

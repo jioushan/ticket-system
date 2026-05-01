@@ -179,8 +179,16 @@
   "settings.loginLog.ip": "IP 地址",
   "settings.loginLog.device": "設備",
   "settings.emailSettings": "郵件設置",
-  "settings.sendgridApiKey": "SendGrid API Key",
-  "settings.sendgridApiKeyDesc": "留空則使用環境變量 SENDGRID_API_KEY",
-  "settings.sendgridSender": "寄件者",
-  "settings.sendgridSenderDesc": "例如: noreply <noreply@example.com>"
+  "settings.emailProvider": "發信服務",
+  "settings.emailProviderCustom": "自定義 Webhook",
+  "settings.emailApiKey": "API Key",
+  "settings.emailApiKeyDesc.sendgrid": "SendGrid API Key，留空則使用環境變量",
+  "settings.emailApiKeyDesc.resend": "Resend API Key",
+  "settings.emailApiKeyDesc.mailgun": "Mailgun API Key",
+  "settings.emailDomain": "域名",
+  "settings.emailDomainDesc": "Mailgun 發信域名，例如: mg.example.com",
+  "settings.emailWebhookUrl": "Webhook URL",
+  "settings.emailWebhookUrlDesc": "自定義 Webhook 端點，系統將以 POST 請求發送 {to, subject, html, from}",
+  "settings.emailSender": "寄件者",
+  "settings.emailSenderDesc": "例如: Ticket System <noreply@example.com>"
 }

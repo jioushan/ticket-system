@@ -179,8 +179,16 @@
   "settings.loginLog.ip": "IPアドレス",
   "settings.loginLog.device": "デバイス",
   "settings.emailSettings": "メール設定",
-  "settings.sendgridApiKey": "SendGrid API Key",
-  "settings.sendgridApiKeyDesc": "空の場合、環境変数 SENDGRID_API_KEY を使用",
-  "settings.sendgridSender": "送信者",
-  "settings.sendgridSenderDesc": "例: noreply <noreply@example.com>"
+  "settings.emailProvider": "メールプロバイダー",
+  "settings.emailProviderCustom": "カスタム Webhook",
+  "settings.emailApiKey": "API Key",
+  "settings.emailApiKeyDesc.sendgrid": "SendGrid API Key、空の場合は環境変数を使用",
+  "settings.emailApiKeyDesc.resend": "Resend API Key",
+  "settings.emailApiKeyDesc.mailgun": "Mailgun API Key",
+  "settings.emailDomain": "ドメイン",
+  "settings.emailDomainDesc": "Mailgun 送信ドメイン、例: mg.example.com",
+  "settings.emailWebhookUrl": "Webhook URL",
+  "settings.emailWebhookUrlDesc": "カスタム Webhook エンドポイント、POST で {to, subject, html, from} を送信",
+  "settings.emailSender": "送信者",
+  "settings.emailSenderDesc": "例: Ticket System <noreply@example.com>"
 }

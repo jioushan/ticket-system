@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Text, Input, SensitiveInput, Button, Banner, Badge, Switch, Dialog, Table, Tabs } from "@cloudflare/kumo";
+import { Text, Input, SensitiveInput, Button, Banner, Badge, Switch, Dialog, Table, Tabs, Select } from "@cloudflare/kumo";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
@@ -48,8 +48,11 @@ export default function Settings() {
   const [maxFileSize, setMaxFileSize] = useState("5");
 
   // Email settings
-  const [sendgridApiKey, setSendgridApiKey] = useState("");
-  const [sendgridSender, setSendgridSender] = useState("");
+  const [emailProvider, setEmailProvider] = useState<"sendgrid" | "resend" | "mailgun" | "custom">("sendgrid");
+  const [emailApiKey, setEmailApiKey] = useState("");
+  const [emailDomain, setEmailDomain] = useState("");
+  const [emailWebhookUrl, setEmailWebhookUrl] = useState("");
+  const [emailSender, setEmailSender] = useState("");
 
   // Users management
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -87,8 +90,16 @@ export default function Settings() {
       if (data.registration_enabled) setRegistrationEnabled(data.registration_enabled === "true");
       if (data.allowed_formats) setAllowedFormats(data.allowed_formats);
       if (data.max_file_size) setMaxFileSize(String(parseInt(data.max_file_size) / 1024 / 1024));
-      if (data.sendgrid_api_key) setSendgridApiKey(data.sendgrid_api_key);
-      if (data.sendgrid_sender) setSendgridSender(data.sendgrid_sender);
+      if (data.email_config) {
+        try {
+          const ec = JSON.parse(data.email_config);
+          if (ec.provider) setEmailProvider(ec.provider);
+          if (ec.apiKey) setEmailApiKey(ec.apiKey);
+          if (ec.domain) setEmailDomain(ec.domain);
+          if (ec.webhookUrl) setEmailWebhookUrl(ec.webhookUrl);
+          if (ec.sender) setEmailSender(ec.sender);
+        } catch {}
+      }
     } catch (err) {
       console.error("Failed to fetch settings:", err);
     }
@@ -238,14 +249,20 @@ export default function Settings() {
 
   const handleSave = async () => {
     try {
+      const emailConfig = JSON.stringify({
+        provider: emailProvider,
+        apiKey: emailApiKey,
+        domain: emailDomain,
+        webhookUrl: emailWebhookUrl,
+        sender: emailSender,
+      });
       await api.settings.update({
         turnstile_enabled: String(turnstileEnabled),
         turnstile_site_key: turnstileSiteKey,
         registration_enabled: String(registrationEnabled),
         allowed_formats: allowedFormats,
         max_file_size: String(parseInt(maxFileSize) * 1024 * 1024),
-        sendgrid_api_key: sendgridApiKey,
-        sendgrid_sender: sendgridSender,
+        email_config: emailConfig,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -555,17 +572,49 @@ export default function Settings() {
             <section>
               <Text variant="heading3" as="h2">{t("settings.emailSettings")}</Text>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-                <SensitiveInput
-                  label={t("settings.sendgridApiKey")}
-                  value={sendgridApiKey}
-                  onValueChange={setSendgridApiKey}
-                  description={t("settings.sendgridApiKeyDesc")}
-                />
+                <Select
+                  label={t("settings.emailProvider")}
+                  value={emailProvider}
+                  onValueChange={(v) => setEmailProvider(v as typeof emailProvider)}
+                >
+                  <Select.Option value="sendgrid">SendGrid</Select.Option>
+                  <Select.Option value="resend">Resend</Select.Option>
+                  <Select.Option value="mailgun">Mailgun</Select.Option>
+                  <Select.Option value="custom">{t("settings.emailProviderCustom")}</Select.Option>
+                </Select>
+
+                {emailProvider !== "custom" && (
+                  <SensitiveInput
+                    label={t("settings.emailApiKey")}
+                    value={emailApiKey}
+                    onValueChange={setEmailApiKey}
+                    description={t(`settings.emailApiKeyDesc.${emailProvider}`)}
+                  />
+                )}
+
+                {emailProvider === "mailgun" && (
+                  <Input
+                    label={t("settings.emailDomain")}
+                    value={emailDomain}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailDomain(e.target.value)}
+                    description={t("settings.emailDomainDesc")}
+                  />
+                )}
+
+                {emailProvider === "custom" && (
+                  <Input
+                    label={t("settings.emailWebhookUrl")}
+                    value={emailWebhookUrl}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailWebhookUrl(e.target.value)}
+                    description={t("settings.emailWebhookUrlDesc")}
+                  />
+                )}
+
                 <Input
-                  label={t("settings.sendgridSender")}
-                  value={sendgridSender}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSendgridSender(e.target.value)}
-                  description={t("settings.sendgridSenderDesc")}
+                  label={t("settings.emailSender")}
+                  value={emailSender}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailSender(e.target.value)}
+                  description={t("settings.emailSenderDesc")}
                 />
               </div>
             </section>
