@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Button, Text, Badge, InputArea, Dialog, Select } from "@cloudflare/kumo";
+import { Button, Text, Badge, Dialog, Select } from "@cloudflare/kumo";
 import { PaperPlaneRight, Smiley, ArrowLeft, Trash, CheckCircle, Paperclip } from "@phosphor-icons/react";
 import { useTranslation } from "../i18n/I18nContext";
 import { api } from "../lib/api";
@@ -26,6 +26,25 @@ const priorityVariant: Record<string, "neutral" | "blue" | "orange" | "red"> = {
 
 const EMOJI_LIST = ["😀","😂","😍","🤔","👍","👎","❤️","🔥","✅","❌","⚠️","🎉","😢","😡","🙏","💪"];
 
+function formatTime(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return time;
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + time;
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
+
 export default function TicketConversation({
   ticket, currentUserId, currentUserRole, onBack, onCloseTicket, onDeleteTicket, onUpdateStatus, onUpdatePriority,
 }: TicketConversationProps) {
@@ -43,6 +62,7 @@ export default function TicketConversation({
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSignalRef = useRef(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -56,6 +76,22 @@ export default function TicketConversation({
   }, [ticket.id]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
+
+  // Real-time polling for new messages (every 4 seconds)
+  useEffect(() => {
+    if (currentStatus === "closed") return;
+    const interval = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const data = await api.tickets.get(ticket.id);
+        const newMessages = data.messages || [];
+        if (newMessages.length > messages.length) {
+          setMessages(newMessages);
+        }
+      } catch {}
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [ticket.id, currentStatus, messages.length]);
 
   // Poll typing status
   useEffect(() => {
@@ -106,14 +142,19 @@ export default function TicketConversation({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleInputChange = (val: string) => {
-    setInput(val);
-    // Signal typing (debounced - at most once per 2 seconds)
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    autoResize(e.target);
     const now = Date.now();
     if (now - lastTypingSignalRef.current > 2000) {
       lastTypingSignalRef.current = now;
       api.tickets.signalTyping(ticket.id).catch(() => {});
     }
+  };
+
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -137,25 +178,25 @@ export default function TicketConversation({
     onUpdatePriority?.(ticket.id, newPriority);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / 1024 / 1024).toFixed(1) + " MB";
-  };
+  const getInitial = (name: string) => (name || "?").charAt(0).toUpperCase();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header */}
       <div style={{
-        display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
-        padding: "1rem", borderBottom: "1px solid var(--color-kumo-hairline)",
+        display: "flex", alignItems: "center", gap: "0.75rem",
+        padding: "0.75rem 1rem", borderBottom: "1px solid var(--color-kumo-hairline)",
+        flexShrink: 0,
       }}>
         <Button variant="ghost" size="sm" shape="square" aria-label="Back" onClick={onBack}>
           <ArrowLeft />
         </Button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Text bold>{ticket.id} — {ticket.title}</Text>
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Text bold>{ticket.title}</Text>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
+            <Text size="xs" variant="secondary">{ticket.id}</Text>
             {currentUserRole === "admin" ? (
               <>
                 <Select
@@ -196,7 +237,7 @@ export default function TicketConversation({
           </div>
         </div>
         {currentUserRole === "admin" && (
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
             {currentStatus !== "closed" && (
               <Button variant="secondary" size="sm" icon={<CheckCircle />} onClick={() => { setCurrentStatus("closed"); onCloseTicket(ticket.id); }}>
                 {t("ticket.close")}
@@ -210,61 +251,89 @@ export default function TicketConversation({
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflow: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      <div className="chat-messages" style={{ flex: 1, overflow: "auto", padding: "0.75rem 1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>
         ) : messages.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.5 }}><Text>{t("ticket.noMessages")}</Text></div>
         ) : (
-          messages.map((msg) => {
-            const isAdmin = msg.role === "admin";
+          messages.map((msg, idx) => {
+            const isMine = msg.user_id === currentUserId;
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const showAvatar = !prevMsg || prevMsg.user_id !== msg.user_id;
+            const showName = showAvatar;
+
             return (
-              <div key={msg.id} style={{
-                display: "flex",
-                justifyContent: isAdmin ? "flex-end" : "flex-start",
-              }}>
+              <div key={msg.id}>
+                {/* Date separator if first message or different day */}
+                {idx === 0 && (
+                  <div style={{ textAlign: "center", margin: "0.5rem 0" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-color-kumo-subtle, #9ca3af)", background: "var(--color-kumo-base, #fff)", padding: "2px 10px", borderRadius: 10 }}>
+                      {formatTime(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+
                 <div style={{
-                  maxWidth: "70%",
-                  padding: "0.75rem 1rem",
-                  borderRadius: 12,
-                  borderTopLeftRadius: isAdmin ? 12 : 2,
-                  borderTopRightRadius: isAdmin ? 2 : 12,
-                  background: isAdmin
-                    ? "var(--color-kumo-brand)"
-                    : "var(--color-kumo-fill)",
-                  color: isAdmin ? "#fff" : "inherit",
+                  display: "flex",
+                  justifyContent: isMine ? "flex-end" : "flex-start",
+                  alignItems: "flex-end",
+                  gap: 6,
+                  marginTop: showAvatar ? "0.5rem" : 2,
                 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4, opacity: 0.8 }}>
-                    <Text size="sm">{msg.username}</Text>
-                  </div>
-                  <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                    <Text size="sm">{msg.content}</Text>
-                  </div>
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {msg.attachments.map((att) => (
-                        <a
-                          key={att.id}
-                          href={api.attachments.downloadUrl(att.r2_key, localStorage.getItem("auth_token") || "")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            fontSize: 12,
-                            color: isAdmin ? "#bfdbfe" : "#3b82f6",
-                            textDecoration: "underline",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <Paperclip size={12} /> {att.filename} ({formatFileSize(att.size)})
-                        </a>
-                      ))}
+                  {/* Avatar (other's messages, left side) */}
+                  {!isMine && (
+                    <div style={{ width: 32, flexShrink: 0 }}>
+                      {showAvatar && (
+                        <div className={`chat-avatar ${msg.role === "admin" ? "chat-avatar-admin" : "chat-avatar-user"}`}>
+                          {getInitial(msg.username)}
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, marginTop: 4, opacity: 0.6, textAlign: "right" }}>
-                    {msg.created_at}
+
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
+                    {/* Username */}
+                    {showName && !isMine && (
+                      <div style={{ marginBottom: 2, marginLeft: 4, opacity: 0.7 }}>
+                        <Text size="xs" bold>{msg.username}</Text>
+                      </div>
+                    )}
+
+                    {/* Bubble */}
+                    <div className={`chat-bubble ${isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
+                      <div>{msg.content}</div>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {msg.attachments.map((att) => (
+                            <a
+                              key={att.id}
+                              href={api.attachments.downloadUrl(att.r2_key, localStorage.getItem("auth_token") || "")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`chat-attachment ${isMine ? "chat-attachment-mine" : "chat-attachment-other"}`}
+                            >
+                              <Paperclip size={12} /> {att.filename} ({formatFileSize(att.size)})
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.55, textAlign: "right", whiteSpace: "nowrap" }}>
+                        {formatTime(msg.created_at)}
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Avatar (my messages, right side) */}
+                  {isMine && (
+                    <div style={{ width: 32, flexShrink: 0 }}>
+                      {showAvatar && (
+                        <div className="chat-avatar chat-avatar-admin">
+                          {getInitial(msg.username)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -273,74 +342,96 @@ export default function TicketConversation({
         <div ref={bottomRef} />
       </div>
 
+      {/* Typing indicator */}
+      {typingUser && currentStatus !== "closed" && (
+        <div style={{ padding: "2px 1rem", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: "var(--text-color-kumo-subtle, #9ca3af)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="typing-dots"><span /><span /><span /></span>
+            {t("ticket.typing", { name: typingUser })}
+          </span>
+        </div>
+      )}
+
       {/* Input area */}
       {currentStatus !== "closed" && (
         <div style={{
-          padding: "0.75rem 1rem",
+          padding: "0.5rem 0.75rem",
           borderTop: "1px solid var(--color-kumo-hairline)",
-          display: "flex", flexDirection: "column", gap: "0.5rem",
+          flexShrink: 0,
         }}>
+          {/* Emoji picker */}
           {showEmoji && (
             <div style={{
-              display: "flex", flexWrap: "wrap", gap: 4, padding: 8,
+              display: "flex", flexWrap: "wrap", gap: 2, padding: 6, marginBottom: 6,
               borderRadius: 8, background: "var(--color-kumo-fill)",
             }}>
               {EMOJI_LIST.map((e) => (
-                <button key={e} onClick={() => setInput(input + e)}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 4 }}>
+                <button key={e} onClick={() => { setInput(input + e); setTimeout(() => textareaRef.current?.focus(), 0); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 4, borderRadius: 4 }}>
                   {e}
                 </button>
               ))}
             </div>
           )}
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
-            <Button variant="ghost" size="sm" shape="square" aria-label="Emoji"
-              onClick={() => setShowEmoji(!showEmoji)}>
-              <Smiley />
-            </Button>
+
+          {/* Pending file chip */}
+          {pendingFile && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 10px",
+              borderRadius: 16, background: "var(--color-kumo-fill)", marginBottom: 6, width: "fit-content",
+            }}>
+              <Paperclip size={12} />
+              <span>{pendingFile.name} ({formatFileSize(pendingFile.size)})</span>
+              <button onClick={() => setPendingFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 14, padding: "0 2px" }}>×</button>
+            </div>
+          )}
+
+          {/* Input row */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+            <button
+              onClick={() => setShowEmoji(!showEmoji)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-color-kumo-subtle, #9ca3af)", flexShrink: 0 }}
+              aria-label="Emoji"
+            >
+              <Smiley size={22} />
+            </button>
             <input
               type="file"
               ref={fileInputRef}
               style={{ display: "none" }}
               onChange={handleFileSelect}
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              shape="square"
-              aria-label={t("common.attachFile")}
+            <button
               onClick={() => fileInputRef.current?.click()}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-color-kumo-subtle, #9ca3af)", flexShrink: 0 }}
+              aria-label={t("common.attachFile")}
             >
-              <Paperclip />
-            </Button>
-            <div style={{ flex: 1 }}>
-              <InputArea
-                placeholder={t("ticket.reply") + "..."}
-                value={input}
-                onValueChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                rows={2}
-              />
-            </div>
-            <Button variant="primary" size="sm" shape="square" aria-label="Send" onClick={handleSend} disabled={sending}>
-              <PaperPlaneRight />
-            </Button>
-          </div>
-          {pendingFile && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: "var(--color-kumo-fill)" }}>
-              <Paperclip size={12} />
-              <span>{pendingFile.name} ({formatFileSize(pendingFile.size)})</span>
-              <button onClick={() => setPendingFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 14, padding: "0 4px" }}>×</button>
-            </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.6 }}>
-            {typingUser ? <span>{t("ticket.typing", { name: typingUser })}</span> : <span />}
+              <Paperclip size={22} />
+            </button>
+            <textarea
+              ref={textareaRef}
+              className="chat-textarea"
+              placeholder={t("ticket.reply") + "..."}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              rows={1}
+            />
+            <button
+              className="chat-send-btn"
+              onClick={handleSend}
+              disabled={sending || (!input.trim() && !pendingFile)}
+              aria-label="Send"
+            >
+              <PaperPlaneRight size={18} />
+            </button>
           </div>
         </div>
       )}
 
+      {/* Closed notice */}
       {currentStatus === "closed" && (
-        <div style={{ padding: "1rem", textAlign: "center", borderTop: "1px solid var(--color-kumo-hairline)" }}>
+        <div style={{ padding: "0.75rem 1rem", textAlign: "center", borderTop: "1px solid var(--color-kumo-hairline)", flexShrink: 0 }}>
           <Text size="sm" variant="secondary">{t("ticket.closedNotice")}</Text>
         </div>
       )}
