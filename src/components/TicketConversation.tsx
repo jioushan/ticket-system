@@ -104,7 +104,7 @@ export default function TicketConversation({
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  // Real-time polling for new messages (every 4 seconds)
+  // Real-time polling for new messages (every 15 seconds)
   useEffect(() => {
     if (currentStatus === "closed") return;
     const interval = setInterval(async () => {
@@ -116,11 +116,11 @@ export default function TicketConversation({
           setMessages(newMessages);
         }
       } catch {}
-    }, 4000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [ticket.id, currentStatus, messages.length]);
 
-  // Poll typing status
+  // Poll typing status (every 10 seconds)
   useEffect(() => {
     if (currentStatus === "closed") return;
     const interval = setInterval(async () => {
@@ -128,7 +128,7 @@ export default function TicketConversation({
         const data = await api.tickets.checkTyping(ticket.id);
         setTypingUser(data.typing?.username || null);
       } catch {}
-    }, 2500);
+    }, 10000);
     return () => clearInterval(interval);
   }, [ticket.id, currentStatus]);
 
@@ -173,7 +173,7 @@ export default function TicketConversation({
     setInput(e.target.value);
     autoResize(e.target);
     const now = Date.now();
-    if (now - lastTypingSignalRef.current > 2000) {
+    if (now - lastTypingSignalRef.current > 5000) {
       lastTypingSignalRef.current = now;
       api.tickets.signalTyping(ticket.id).catch(() => {});
     }

@@ -1,0 +1,13 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install deps
+COPY workers/package.json workers/pnpm-lock.yaml* ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile || npm install
+
+# Copy worker source
+COPY workers/ .
+
+# Run schema migration then start wrangler dev
+CMD ["sh", "-c", "npx wrangler d1 execute ticket-system --local --file=./schema.sql && npx wrangler dev --local --port 8787 --host 0.0.0.0"]
