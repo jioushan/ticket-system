@@ -167,5 +167,20 @@
   "stats.users": "Users",
   "stats.admins": "Admins",
   "stats.loadFailed": "Failed to load",
-  "chart.statusDistribution": "Ticket Status Distribution"
+  "chart.statusDistribution": "Ticket Status Distribution",
+  "settings.tab.profile": "Profile",
+  "settings.tab.password": "Change Password",
+  "settings.tab.security": "Security",
+  "settings.tab.users": "User Management",
+  "settings.tab.system": "System Settings",
+  "settings.tab.email": "Email Settings",
+  "settings.loginLog": "Login Log",
+  "settings.loginLog.time": "Login Time",
+  "settings.loginLog.ip": "IP Address",
+  "settings.loginLog.device": "Device",
+  "settings.emailSettings": "Email Settings",
+  "settings.sendgridApiKey": "SendGrid API Key",
+  "settings.sendgridApiKeyDesc": "Leave empty to use env var SENDGRID_API_KEY",
+  "settings.sendgridSender": "Sender",
+  "settings.sendgridSenderDesc": "e.g.: noreply <noreply@example.com>"
 }

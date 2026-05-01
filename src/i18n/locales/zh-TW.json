@@ -167,5 +167,20 @@
   "auth.resetFailed": "重置失敗",
   "auth.twoFactorVerification": "二次驗證",
   "footer.poweredBy": "Powered by",
-  "chart.statusDistribution": "工單狀態分佈"
+  "chart.statusDistribution": "工單狀態分佈",
+  "settings.tab.profile": "個人資料",
+  "settings.tab.password": "變更密碼",
+  "settings.tab.security": "安全",
+  "settings.tab.users": "用戶管理",
+  "settings.tab.system": "系統設定",
+  "settings.tab.email": "郵件設置",
+  "settings.loginLog": "登錄日誌",
+  "settings.loginLog.time": "登錄時間",
+  "settings.loginLog.ip": "IP 地址",
+  "settings.loginLog.device": "設備",
+  "settings.emailSettings": "郵件設置",
+  "settings.sendgridApiKey": "SendGrid API Key",
+  "settings.sendgridApiKeyDesc": "留空則使用環境變量 SENDGRID_API_KEY",
+  "settings.sendgridSender": "寄件者",
+  "settings.sendgridSenderDesc": "例如: noreply <noreply@example.com>"
 }

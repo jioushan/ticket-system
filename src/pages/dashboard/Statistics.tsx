@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Text, Button, Tabs } from "@cloudflare/kumo";
-import { Export } from "@phosphor-icons/react";
+import { Text, Tabs } from "@cloudflare/kumo";
 import { useTranslation } from "../../i18n/I18nContext";
 import { api } from "../../lib/api";
 
@@ -83,21 +82,6 @@ export default function Statistics() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleExport = async () => {
-    try {
-      const tickets = await api.tickets.list();
-      const csv = "ID,Title,Status,Priority,Created\n" +
-        tickets.map((tk: any) => `${tk.id},${tk.title},${tk.status},${tk.priority},${tk.created_at}`).join("\n");
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "tickets.csv"; a.click();
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(err.message || "Export failed");
-    }
-  };
-
   if (loading) {
     return <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>;
   }
@@ -115,10 +99,6 @@ export default function Statistics() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <Button variant="secondary" icon={<Export />} onClick={handleExport}>{t("stats.export")}</Button>
-      </div>
-
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
         {[

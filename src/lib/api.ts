@@ -108,4 +108,5 @@ export const api = {
     delete: (id: string) => request(`/api/users/${id}`, { method: "DELETE" }),
   },
   testEmail: (email: string) => request("/api/test-email", { method: "POST", body: JSON.stringify({ email }) }),
+  loginLogs: (userId?: string) => request(`/api/login-logs${userId ? `?userId=${userId}` : ""}`),
 };

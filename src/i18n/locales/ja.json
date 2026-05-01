@@ -167,5 +167,20 @@
   "stats.users": "ユーザー",
   "stats.admins": "管理者",
   "stats.loadFailed": "読み込み失敗",
-  "chart.statusDistribution": "チケット状態分布"
+  "chart.statusDistribution": "チケット状態分布",
+  "settings.tab.profile": "プロフィール",
+  "settings.tab.password": "パスワード変更",
+  "settings.tab.security": "セキュリティ",
+  "settings.tab.users": "ユーザー管理",
+  "settings.tab.system": "システム設定",
+  "settings.tab.email": "メール設定",
+  "settings.loginLog": "ログイン履歴",
+  "settings.loginLog.time": "ログイン時間",
+  "settings.loginLog.ip": "IPアドレス",
+  "settings.loginLog.device": "デバイス",
+  "settings.emailSettings": "メール設定",
+  "settings.sendgridApiKey": "SendGrid API Key",
+  "settings.sendgridApiKeyDesc": "空の場合、環境変数 SENDGRID_API_KEY を使用",
+  "settings.sendgridSender": "送信者",
+  "settings.sendgridSenderDesc": "例: noreply <noreply@example.com>"
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Sidebar, Text, Button } from "@cloudflare/kumo";
-import { ListChecks, ChartBar, GearSix, ArrowLeft, Plus } from "@phosphor-icons/react";
+import { ListChecks, ChartBar, GearSix, ArrowLeft, Plus, Export } from "@phosphor-icons/react";
 import { useTranslation } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import TopBar from "../components/TopBar";
 import Footer from "../components/Footer";
 import TicketList from "./dashboard/TicketList";
@@ -16,6 +17,25 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [csvExporting, setCsvExporting] = useState(false);
+
+  const handleExport = async () => {
+    setCsvExporting(true);
+    try {
+      const tickets = await api.tickets.list();
+      const csv = "ID,Title,Status,Priority,Created\n" +
+        tickets.map((tk: any) => `${tk.id},${tk.title},${tk.status},${tk.priority},${tk.created_at}`).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "tickets.csv"; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "Export failed");
+    } finally {
+      setCsvExporting(false);
+    }
+  };
 
   useEffect(() => {
     const check = () => {
@@ -116,8 +136,13 @@ export default function Dashboard() {
             {navItems.find(n => n.key === activeNav)?.label}
           </Text>
           {activeNav === "tickets" && (
-            <Button variant="primary" icon={<Plus />} onClick={() => setCreateOpen(true)}>
+            <Button variant="secondary" icon={<Plus />} onClick={() => setCreateOpen(true)}>
               {t("ticket.new")}
+            </Button>
+          )}
+          {activeNav === "stats" && (
+            <Button variant="secondary" icon={<Export />} onClick={handleExport} loading={csvExporting}>
+              {t("stats.export")}
             </Button>
           )}
         </div>
