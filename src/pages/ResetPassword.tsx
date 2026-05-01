@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Button, SensitiveInput, Banner } from "@cloudflare/kumo";
 import { api } from "../lib/api";
+import { useTranslation } from "../i18n/I18nContext";
 const LOGO_URL = "https://www.jsmsr.com/v3/assets/img/favicon.svg";
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,16 +16,16 @@ export default function ResetPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPw) return;
-    if (newPw !== confirmPw) { setResult({ ok: false, msg: "密碼不一致" }); return; }
-    if (newPw.length < 4) { setResult({ ok: false, msg: "密碼至少4位" }); return; }
+    if (newPw !== confirmPw) { setResult({ ok: false, msg: t("settings.passwordMismatch") }); return; }
+    if (newPw.length < 4) { setResult({ ok: false, msg: t("settings.passwordTooShort") }); return; }
     setLoading(true);
     setResult(null);
     try {
       await api.auth.resetPassword(token, newPw);
-      setResult({ ok: true, msg: "密碼已重置，即將跳轉登入..." });
+      setResult({ ok: true, msg: t("auth.resetSuccess") });
       setTimeout(() => { window.location.href = "/"; }, 2000);
     } catch (err: any) {
-      setResult({ ok: false, msg: err.message || "重置失敗" });
+      setResult({ ok: false, msg: err.message || t("auth.resetFailed") });
     } finally {
       setLoading(false);
     }
@@ -42,9 +44,9 @@ export default function ResetPassword() {
           boxShadow: "0 8px 32px rgba(0,0,0,0.15)", padding: "2rem 1.75rem",
           textAlign: "center",
         }}>
-          <Banner variant="error">無效的重置連結，缺少 token</Banner>
+          <Banner variant="error">{t("auth.invalidToken")}</Banner>
           <Button variant="secondary" size="lg" onClick={() => { window.location.href = "/"; }} style={{ marginTop: "1rem" }}>
-            返回登入
+            {t("auth.backToLogin")}
           </Button>
         </div>
       </div>
@@ -68,18 +70,18 @@ export default function ResetPassword() {
             <h1 style={{
               fontSize: "1.5rem", fontWeight: 700, margin: 0,
               color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",
-            }}>重置密碼</h1>
+            }}>{t("auth.resetPasswordTitle")}</h1>
           </div>
           {result && <Banner variant={result.ok ? "default" : "error"}>{result.msg}</Banner>}
           {!result?.ok && (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <SensitiveInput label="新密碼" value={newPw} onValueChange={setNewPw} />
-              <SensitiveInput label="確認新密碼" value={confirmPw} onValueChange={setConfirmPw} />
-              <Button type="submit" variant="primary" size="lg" loading={loading}>重置密碼</Button>
+              <SensitiveInput label={t("auth.newPassword")} value={newPw} onValueChange={setNewPw} />
+              <SensitiveInput label={t("auth.confirmPassword")} value={confirmPw} onValueChange={setConfirmPw} />
+              <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.resetPassword")}</Button>
             </form>
           )}
           <Button variant="secondary" size="lg" onClick={() => { window.location.href = "/"; }}>
-            返回登入
+            {t("auth.backToLogin")}
           </Button>
         </div>
       </div>

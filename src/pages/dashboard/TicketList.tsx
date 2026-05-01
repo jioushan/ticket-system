@@ -178,7 +178,7 @@ export default function TicketList() {
       )}
 
       <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
-        <Dialog size="lg" className="p-8">
+        <Dialog size="sm" className="p-8" style={{ maxHeight: "90vh", overflow: "auto" }}>
           <Dialog.Title>{t("ticket.new")}</Dialog.Title>
           <div style={{ paddingTop: 16 }}>
             <TicketForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />

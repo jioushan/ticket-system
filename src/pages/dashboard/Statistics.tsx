@@ -43,7 +43,7 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
 
 function PieChart({ data }: { data: { label: string; value: number; color: string }[] }) {
   const total = data.reduce((s, d) => s + d.value, 0);
-  if (total === 0) return <div style={{ textAlign: "center", padding: "2rem" }}><Text>暫無數據</Text></div>;
+  if (total === 0) return <div style={{ textAlign: "center", padding: "2rem" }}><Text>No data</Text></div>;
   let cumulative = 0;
   const gradient = data.map((d) => {
     const start = (cumulative / total) * 360;
@@ -103,14 +103,14 @@ export default function Statistics() {
   }
 
   if (!stats) {
-    return <div style={{ textAlign: "center", padding: "2rem" }}><Text>載入失敗</Text></div>;
+    return <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("stats.loadFailed")}</Text></div>;
   }
 
   const chartData = [
-    { label: "待處理", value: stats.open, color: "#f59e0b" },
-    { label: "進行中", value: stats.inProgress, color: "#3b82f6" },
-    { label: "已完成", value: stats.resolved, color: "#22c55e" },
-    { label: "已關閉", value: stats.closed, color: "#6b7280" },
+    { label: t("stats.pending"), value: stats.open, color: "#f59e0b" },
+    { label: t("stats.inProgressLabel"), value: stats.inProgress, color: "#3b82f6" },
+    { label: t("stats.completed"), value: stats.resolved, color: "#22c55e" },
+    { label: t("stats.closedLabel"), value: stats.closed, color: "#6b7280" },
   ];
 
   return (
@@ -137,14 +137,14 @@ export default function Statistics() {
       {/* Chart toggle */}
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
-          <Text variant="heading3" as="h3">工單狀態分佈</Text>
+          <Text variant="heading3" as="h3">{t("chart.statusDistribution")}</Text>
           <Tabs
             value={chartType}
             onValueChange={setChartType}
             variant="segmented"
             tabs={[
-              { value: "bar", label: "柱狀圖" },
-              { value: "pie", label: "餅圖" },
+              { value: "bar", label: t("chart.bar") },
+              { value: "pie", label: t("chart.pie") },
             ]}
           />
         </div>
@@ -153,14 +153,14 @@ export default function Statistics() {
 
       {/* User stats */}
       <div style={cardStyle}>
-        <Text variant="heading3" as="h3">用戶統計</Text>
+        <Text variant="heading3" as="h3">{t("stats.userStats")}</Text>
         <div style={{ display: "flex", gap: "3rem", marginTop: "1rem" }}>
           <div>
-            <Text size="sm" variant="secondary">用戶</Text>
+            <Text size="sm" variant="secondary">{t("stats.users")}</Text>
             <Text variant="heading2" as="span">{stats.users}</Text>
           </div>
           <div>
-            <Text size="sm" variant="secondary">管理員</Text>
+            <Text size="sm" variant="secondary">{t("stats.admins")}</Text>
             <Text variant="heading2" as="span">{stats.admins}</Text>
           </div>
         </div>

@@ -84,7 +84,7 @@ export default function TicketConversation({
         user_id: currentUserId,
         username: currentUserRole === "admin" ? "Admin" : "User",
         role: currentUserRole,
-        content: input.trim() || "[附件]",
+        content: input.trim() || t("common.attachment"),
         created_at: res.created_at,
         attachments: res.attachment ? [res.attachment] : [],
       };
@@ -214,7 +214,7 @@ export default function TicketConversation({
         {loading ? (
           <div style={{ textAlign: "center", padding: "2rem" }}><Text>{t("common.loading") || "Loading..."}</Text></div>
         ) : messages.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "2rem", opacity: 0.5 }}><Text>暫無消息</Text></div>
+          <div style={{ textAlign: "center", padding: "2rem", opacity: 0.5 }}><Text>{t("ticket.noMessages")}</Text></div>
         ) : (
           messages.map((msg) => {
             const isAdmin = msg.role === "admin";
@@ -334,14 +334,14 @@ export default function TicketConversation({
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.6 }}>
-            {typingUser ? <span>{typingUser} 正在輸入...</span> : <span />}
+            {typingUser ? <span>{t("ticket.typing", { name: typingUser })}</span> : <span />}
           </div>
         </div>
       )}
 
       {currentStatus === "closed" && (
         <div style={{ padding: "1rem", textAlign: "center", borderTop: "1px solid var(--color-kumo-hairline)" }}>
-          <Text size="sm" variant="secondary">此工單已關閉</Text>
+          <Text size="sm" variant="secondary">{t("ticket.closedNotice")}</Text>
         </div>
       )}
 

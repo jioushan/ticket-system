@@ -111,9 +111,7 @@ wrangler deploy
 
 部署成功後會顯示 Worker 的 URL，例如：
 ```
-https://ticket-system-api.你的子域名.workers.dev
-
-https://ticket-system-api.jioushan.workers.dev
+https://ticket-system-api.jsmsr.com
 ```
 
 記下這個 URL，前端需要使用。
@@ -137,7 +135,7 @@ https://ticket-system-api.jioushan.workers.dev
    - **Build output directory**: `dist`
    - **Node.js version**: 在環境變量中設置 `NODE_VERSION=18`
 5. 添加環境變量：
-   - `VITE_API_BASE` = 你的 Worker URL（例如 `https://ticket-system-api.你的子域名.workers.dev`）
+   - `VITE_API_BASE` = 你的 Worker URL（例如 `https://ticket-system-api.jsmsr.com`）
 6. 點擊 **Save and Deploy**
 
 每次 push 到 main 分支會自動觸發部署。
@@ -146,7 +144,7 @@ https://ticket-system-api.jioushan.workers.dev
 
 ```bash
 # 構建
-VITE_API_BASE=https://ticket-system-api.你的子域名.workers.dev pnpm build
+VITE_API_BASE=https://ticket-system-api.jsmsr.com pnpm build
 
 # 部署到 Cloudflare Pages
 npx wrangler pages deploy dist --project-name=ticket-system

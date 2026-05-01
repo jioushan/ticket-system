@@ -6,7 +6,8 @@
       "Bash(pnpm dev *)",
       "Bash(node *)",
       "Bash(pnpm build *)",
-      "Bash(pkill -f \"vite\")"
+      "Bash(pkill -f \"vite\")",
+      "Bash(VITE_API_BASE=https://ticket-system-api.jsmsr.com pnpm build *)"
     ]
   }
 }

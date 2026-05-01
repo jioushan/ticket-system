@@ -35,7 +35,19 @@ export default function Dashboard() {
 
   return (
     <Sidebar.Provider open={sidebarOpen} onOpenChange={setSidebarOpen} collapsible="icon">
-      <Sidebar>
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 40,
+          }}
+        />
+      )}
+      <Sidebar style={isMobile ? { position: "fixed", zIndex: 50, height: "100vh" } : undefined}>
         <Sidebar.Header>
           {sidebarOpen && (
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0 0.25rem" }}>

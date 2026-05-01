@@ -103,7 +103,7 @@ export default function Login() {
     try {
       const data = await api.auth.verify2fa(tempToken, twoFACode);
       completeLogin(data.token, data.user);
-    } catch { setError("驗證碼錯誤"); }
+    } catch { setError(t("auth.verificationError")); }
     finally { setLoading(false); }
   };
 
@@ -115,7 +115,7 @@ export default function Login() {
       const data = await api.auth.verify2faPasskey(tempToken, response, passkeyChallengeToken);
       completeLogin(data.token, data.user);
     } catch (err: any) {
-      setError(err.message || "Passkey 驗證失敗");
+      setError(err.message || t("auth.passkeyFailed"));
     } finally {
       setLoading(false);
     }
@@ -124,9 +124,9 @@ export default function Login() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regUsername || !regEmail || !regPassword) return;
-    if (regPassword !== regConfirm) { setError("密碼不一致"); return; }
-    if (turnstileEnabled && turnstileSiteKey && !turnstileToken) { setError("請完成驗證"); return; }
-    if (turnstileEnabled && !turnstileSiteKey) { setError("Turnstile 網站密鑰未配置，無法註冊"); return; }
+    if (regPassword !== regConfirm) { setError(t("auth.passwordMismatch")); return; }
+    if (turnstileEnabled && turnstileSiteKey && !turnstileToken) { setError(t("auth.turnstileRequired")); return; }
+    if (turnstileEnabled && !turnstileSiteKey) { setError(t("auth.turnstileNotConfigured")); return; }
     setError("");
     setLoading(true);
     try {
@@ -147,7 +147,7 @@ export default function Login() {
     setLoading(true);
     try {
       await api.auth.forgotPassword(forgotEmail);
-      setSuccess("重置連結已發送至您的電子郵件");
+      setSuccess(t("auth.resetEmailSent"));
     } catch (err: any) {
       setError(err.message || t("auth.loginError"));
     } finally {
@@ -204,7 +204,7 @@ export default function Login() {
               <h1 style={{
                 fontSize: "1.5rem", fontWeight: 700, margin: 0,
                 color: "var(--text-color-kumo-strong, var(--text-color-kumo-default))",
-              }}>{requires2fa ? "二次驗證" : t("app.title")}</h1>
+              }}>{requires2fa ? t("auth.twoFactorVerification") : t("app.title")}</h1>
             </div>
             {error && <Banner variant="error">{error}</Banner>}
             {!requires2fa ? (
@@ -227,30 +227,30 @@ export default function Login() {
               <>
                 <div style={{ textAlign: "center", padding: "1rem 0" }}>
                   <Fingerprint size={48} />
-                  <div style={{ marginTop: 8 }}><Text size="sm" variant="secondary">正在使用 Passkey 驗證...</Text></div>
+                  <div style={{ marginTop: 8 }}><Text size="sm" variant="secondary">{t("auth.passkeyVerifying")}</Text></div>
                 </div>
                 {error && <Banner variant="error">{error}</Banner>}
                 <Button variant="primary" size="lg" icon={<Fingerprint />} onClick={handlePasskey2FA} loading={loading}>
-                  重新嘗試 Passkey 驗證
+                  {t("auth.passkeyRetry")}
                 </Button>
                 <button type="button" className="text-link-btn" onClick={reset2FA}>
-                  返回登入
+                  {t("auth.backToLogin")}
                 </button>
               </>
             ) : (
               <>
                 <form onSubmit={handleVerifyTOTP} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                   <Input
-                    label="驗證碼"
-                    placeholder="輸入 6 位驗證碼"
+                    label={t("auth.verifyCode")}
+                    placeholder={t("auth.verifyCodePlaceholder")}
                     value={twoFACode}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     maxLength={6}
                   />
-                  <Button type="submit" variant="primary" size="lg" loading={loading}>驗證</Button>
+                  <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.verify")}</Button>
                 </form>
                 <button type="button" className="text-link-btn" onClick={reset2FA}>
-                  返回登入
+                  {t("auth.backToLogin")}
                 </button>
               </>
             )}
@@ -283,7 +283,7 @@ export default function Login() {
                   />
                 ) : (
                   <div style={{ fontSize: 13, color: "#ef4444", padding: "4px 0" }}>
-                    Turnstile 驗證已啟用但網站密鑰未配置，請聯繫管理員
+                    {t("auth.turnstileNotConfigured")}
                   </div>
                 )
               )}

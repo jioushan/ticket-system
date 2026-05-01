@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Input, InputArea, Select, Button } from "@cloudflare/kumo";
 import { api } from "../lib/api";
+import { useTranslation } from "../i18n/I18nContext";
 import TurnstileWidget from "./TurnstileWidget";
 import type { TicketPriority } from "../types";
 
@@ -10,6 +11,7 @@ interface TicketFormProps {
 }
 
 export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
@@ -33,30 +35,30 @@ export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <Input
-        label="工單標題"
-        placeholder="請輸入工單標題"
+        label={t("form.title")}
+        placeholder={t("form.titlePlaceholder")}
         value={title}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
         required
       />
 
       <InputArea
-        label="工單描述"
-        placeholder="請輸入工單描述"
+        label={t("form.description")}
+        placeholder={t("form.descriptionPlaceholder")}
         value={description}
         onValueChange={setDescription}
         rows={4}
       />
 
       <Select
-        label="優先級"
+        label={t("ticket.priority")}
         value={priority}
         onValueChange={(v) => { if (v) setPriority(v as TicketPriority); }}
         items={{
-          low: "低",
-          medium: "中",
-          high: "高",
-          urgent: "緊急",
+          low: t("priority.low"),
+          medium: t("priority.medium"),
+          high: t("priority.high"),
+          urgent: t("priority.urgent"),
         }}
       />
 
@@ -69,14 +71,14 @@ export default function TicketForm({ onSubmit, onCancel }: TicketFormProps) {
           />
         ) : (
           <div style={{ fontSize: 13, color: "#ef4444", padding: "4px 0" }}>
-            Turnstile 驗證已啟用但網站密鑰未配置
+            {t("auth.turnstileNotConfigured")}
           </div>
         )
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
-        <Button variant="secondary" onClick={onCancel}>取消</Button>
-        <Button type="submit" variant="primary">建立</Button>
+        <Button variant="secondary" onClick={onCancel}>{t("common.cancel")}</Button>
+        <Button type="submit" variant="primary">{t("ticket.createTitle")}</Button>
       </div>
     </form>
   );

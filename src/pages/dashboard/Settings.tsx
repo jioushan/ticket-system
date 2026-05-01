@@ -107,7 +107,7 @@ export default function Settings() {
       const data = await api.auth.setup2fa();
       setTwoFASetup(data);
     } catch (err: any) {
-      setTwoFAResult({ ok: false, msg: err.message || "設置失敗" });
+      setTwoFAResult({ ok: false, msg: err.message || t("settings.setupFailed") });
     } finally {
       setTwoFALoading(false);
     }
@@ -127,9 +127,9 @@ export default function Settings() {
         await api.auth.passkeyDelete(pk.id).catch(() => {});
       }
       setPasskeys([]);
-      setTwoFAResult({ ok: true, msg: "2FA 已啟用（Passkey 已移除）" });
+      setTwoFAResult({ ok: true, msg: t("settings.twoFAEnabled") });
     } catch (err: any) {
-      setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
+      setTwoFAResult({ ok: false, msg: err.message || t("settings.verificationFailed") });
     } finally {
       setTwoFALoading(false);
     }
@@ -143,9 +143,9 @@ export default function Settings() {
       await api.auth.disable2fa(twoFACode);
       setHas2fa(false);
       setTwoFACode("");
-      setTwoFAResult({ ok: true, msg: "2FA 已關閉" });
+      setTwoFAResult({ ok: true, msg: t("settings.twoFADisabled") });
     } catch (err: any) {
-      setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
+      setTwoFAResult({ ok: false, msg: err.message || t("settings.verificationFailed") });
     } finally {
       setTwoFALoading(false);
     }
@@ -160,10 +160,10 @@ export default function Settings() {
       await api.auth.passkeyRegisterVerify(response, challengeToken);
       // 後端自動關閉 TOTP 2FA（互斥）
       setHas2fa(false);
-      setPasskeyResult({ ok: true, msg: "Passkey 已註冊（TOTP 2FA 已自動關閉）" });
+      setPasskeyResult({ ok: true, msg: t("settings.passkeyRegistered") });
       await fetchPasskeys();
     } catch (err: any) {
-      setPasskeyResult({ ok: false, msg: err.message || "註冊失敗" });
+      setPasskeyResult({ ok: false, msg: err.message || t("settings.passkeyDeleteFailed") });
     } finally {
       setPasskeyLoading(false);
     }
@@ -174,24 +174,24 @@ export default function Settings() {
       await api.auth.passkeyDelete(id);
       setPasskeys(passkeys.filter(p => p.id !== id));
     } catch (err: any) {
-      alert(err.message || "刪除失敗");
+      alert(err.message || t("settings.passkeyDeleteFailed"));
     }
   };
 
   const handleChangePassword = async () => {
     if (!currentPw || !newPw) return;
-    if (newPw !== confirmPw) { setPwResult({ ok: false, msg: "新密碼不一致" }); return; }
-    if (newPw.length < 4) { setPwResult({ ok: false, msg: "密碼至少4位" }); return; }
+    if (newPw !== confirmPw) { setPwResult({ ok: false, msg: t("settings.passwordMismatch") }); return; }
+    if (newPw.length < 4) { setPwResult({ ok: false, msg: t("settings.passwordTooShort") }); return; }
     setPwLoading(true);
     setPwResult(null);
     try {
       await api.auth.changePassword(currentPw, newPw);
-      setPwResult({ ok: true, msg: "密碼已變更，已發送通知郵件" });
+      setPwResult({ ok: true, msg: t("settings.passwordChanged") });
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
     } catch (err: any) {
-      setPwResult({ ok: false, msg: err.message || "變更失敗" });
+      setPwResult({ ok: false, msg: err.message || t("settings.passwordChangeFailed") });
     } finally {
       setPwLoading(false);
     }
@@ -203,9 +203,9 @@ export default function Settings() {
     setTestEmailResult(null);
     try {
       await api.testEmail(testEmail);
-      setTestEmailResult({ ok: true, msg: "測試郵件已發送，請檢查收件箱" });
+      setTestEmailResult({ ok: true, msg: t("settings.testEmailSent") });
     } catch (err: any) {
-      setTestEmailResult({ ok: false, msg: err.message || "發送失敗" });
+      setTestEmailResult({ ok: false, msg: err.message || t("settings.testEmailFailed") });
     } finally {
       setTestEmailSending(false);
     }
@@ -277,45 +277,45 @@ export default function Settings() {
 
       {/* Change Password */}
       <section>
-        <Text variant="heading3" as="h2">變更密碼</Text>
+        <Text variant="heading3" as="h2">{t("settings.changePassword")}</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
-          <SensitiveInput label="當前密碼" value={currentPw} onValueChange={setCurrentPw} />
-          <SensitiveInput label="新密碼" value={newPw} onValueChange={setNewPw} />
-          <SensitiveInput label="確認新密碼" value={confirmPw} onValueChange={setConfirmPw} />
+          <SensitiveInput label={t("settings.currentPassword")} value={currentPw} onValueChange={setCurrentPw} />
+          <SensitiveInput label={t("settings.newPassword")} value={newPw} onValueChange={setNewPw} />
+          <SensitiveInput label={t("settings.confirmNewPassword")} value={confirmPw} onValueChange={setConfirmPw} />
           {pwResult && (
             <Banner variant={pwResult.ok ? "default" : "error"}>{pwResult.msg}</Banner>
           )}
           <Button variant="secondary" onClick={handleChangePassword} loading={pwLoading}>
-            變更密碼
+            {t("settings.changePassword")}
           </Button>
         </div>
       </section>
 
       {/* 2FA */}
       <section>
-        <Text variant="heading3" as="h2">二步驗證 (TOTP)</Text>
+        <Text variant="heading3" as="h2">{t("settings.twoFASetupTitle")}</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
           {passkeys.length > 0 && !has2fa && (
-            <Banner variant="default">已啟用 Passkey，TOTP 2FA 不可用。兩者互斥，僅可啟用其一。</Banner>
+            <Banner variant="default">{t("settings.mutualExclusionPasskey")}</Banner>
           )}
           {has2fa ? (
             <>
-              <div style={{ width: "fit-content" }}><Badge variant="green">已啟用</Badge></div>
-              <Text size="sm" variant="secondary">使用驗證器 App 掃描過的密鑰仍然有效。要關閉 2FA，請輸入當前驗證碼。</Text>
+              <div style={{ width: "fit-content" }}><Badge variant="green">{t("settings.twoFAEnabledBadge")}</Badge></div>
+              <Text size="sm" variant="secondary">{t("settings.twoFADisableDesc")}</Text>
               <Input
-                label="驗證碼"
-                placeholder="輸入 6 位驗證碼"
+                label={t("settings.verificationCode")}
+                placeholder={t("settings.verificationCodePlaceholder")}
                 value={twoFACode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 maxLength={6}
               />
               <Button variant="destructive" onClick={handleDisable2FA} loading={twoFALoading} disabled={twoFACode.length !== 6}>
-                關閉 2FA
+                {t("settings.disable2FA")}
               </Button>
             </>
           ) : twoFASetup ? (
             <>
-              <Text size="sm">使用驗證器 App（Google Authenticator、Authy 等）掃描 QR Code：</Text>
+              <Text size="sm">{t("settings.scanQR")}</Text>
               <div style={{ textAlign: "center", padding: "1rem", background: "#fff", borderRadius: 8, display: "inline-block", alignSelf: "center" }}>
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFASetup.otpauth_url)}`}
@@ -323,24 +323,24 @@ export default function Settings() {
                   style={{ width: 200, height: 200 }}
                 />
               </div>
-              <Text size="sm" variant="secondary">或手動輸入密鑰：<code style={{ padding: "2px 6px", background: "var(--color-kumo-fill)", borderRadius: 4, fontSize: 13 }}>{twoFASetup.secret}</code></Text>
+              <Text size="sm" variant="secondary">{t("settings.manualKey")}<code style={{ padding: "2px 6px", background: "var(--color-kumo-fill)", borderRadius: 4, fontSize: 13 }}>{twoFASetup.secret}</code></Text>
               <Input
-                label="驗證碼"
-                placeholder="輸入 6 位驗證碼確認"
+                label={t("settings.verificationCode")}
+                placeholder={t("settings.verificationCodePlaceholder")}
                 value={twoFACode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 maxLength={6}
               />
               <Button variant="primary" onClick={handleEnable2FA} loading={twoFALoading} disabled={twoFACode.length !== 6}>
-                啟用 2FA
+                {t("settings.enable2FA")}
               </Button>
-              <Button variant="secondary" onClick={() => { setTwoFASetup(null); setTwoFACode(""); }}>取消</Button>
+              <Button variant="secondary" onClick={() => { setTwoFASetup(null); setTwoFACode(""); }}>{t("common.cancel")}</Button>
             </>
           ) : (
             <>
-              <Text size="sm" variant="secondary">啟用二步驗證後，登入時需要輸入驗證器 App 產生的驗證碼。</Text>
+              <Text size="sm" variant="secondary">{t("settings.twoFADesc")}</Text>
               <Button variant="secondary" onClick={handleSetup2FA} loading={twoFALoading}>
-                設置 2FA
+                {t("settings.setup2FA")}
               </Button>
             </>
           )}
@@ -352,11 +352,11 @@ export default function Settings() {
 
       {/* Passkey */}
       <section>
-        <Text variant="heading3" as="h2">Passkey（通行密鑰）</Text>
+        <Text variant="heading3" as="h2">{t("settings.passkeyTitle")}</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
-          <Text size="sm" variant="secondary">使用指紋、Face ID 或硬體安全金鑰作為二步驗證。與 TOTP 2FA 互斥。</Text>
+          <Text size="sm" variant="secondary">{t("settings.passkeyDesc")}</Text>
           {has2fa && passkeys.length === 0 && (
-            <Banner variant="default">已啟用 TOTP 2FA，Passkey 不可用。兩者互斥，僅可啟用其一。</Banner>
+            <Banner variant="default">{t("settings.mutualExclusionTOTP")}</Banner>
           )}
           {passkeys.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -364,16 +364,16 @@ export default function Settings() {
                 <div key={pk.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-kumo-hairline)" }}>
                   <div>
                     <Text size="sm" bold>{pk.credential_id.slice(0, 20)}...</Text>
-                    <Text size="sm" variant="secondary">註冊於 {pk.created_at}</Text>
+                    <Text size="sm" variant="secondary">{pk.created_at}</Text>
                   </div>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeletePasskey(pk.id)}>刪除</Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleDeletePasskey(pk.id)}>{t("common.delete")}</Button>
                 </div>
               ))}
             </div>
           )}
           {passkeyResult && <Banner variant={passkeyResult.ok ? "default" : "error"}>{passkeyResult.msg}</Banner>}
           <Button variant="secondary" onClick={handleRegisterPasskey} loading={passkeyLoading}>
-            註冊新 Passkey
+            {t("settings.registerPasskey")}
           </Button>
         </div>
       </section>
@@ -455,9 +455,9 @@ export default function Settings() {
 
             {/* Attachment settings */}
             <div style={{ padding: "1rem", borderRadius: 8, border: "1px solid var(--color-kumo-hairline)" }}>
-              <Text bold>附件設定</Text>
+              <Text bold>{t("settings.attachmentSettings")}</Text>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
-                <Input label={t("settings.allowedFormats")} value={allowedFormats} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAllowedFormats(e.target.value)} description="用逗號分隔，例如: zip,jpg,png" />
+                <Input label={t("settings.allowedFormats")} value={allowedFormats} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAllowedFormats(e.target.value)} description={t("settings.allowedFormatsDesc")} />
                 <Input label={t("settings.maxFileSize") + " (MB)"} type="number" value={maxFileSize} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMaxFileSize(e.target.value)} />
               </div>
             </div>
@@ -473,14 +473,14 @@ export default function Settings() {
       {/* Admin: Test Email */}
       {isAdmin && (
         <section>
-          <Text variant="heading3" as="h2">郵件測試</Text>
+          <Text variant="heading3" as="h2">{t("settings.emailTest")}</Text>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
               <div style={{ flex: 1 }}>
                 <Input
-                  label="測試收件箱"
+                  label={t("settings.testInbox")}
                   type="email"
-                  placeholder="輸入郵箱地址"
+                  placeholder={t("settings.testInboxPlaceholder")}
                   value={testEmail}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTestEmail(e.target.value)}
                 />
@@ -491,7 +491,7 @@ export default function Settings() {
                 onClick={handleTestEmail}
                 disabled={!testEmail}
               >
-                發送測試
+                {t("settings.sendTest")}
               </Button>
             </div>
             {testEmailResult && (
