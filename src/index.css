@@ -37,14 +37,25 @@ table th {
   --sidebar-width-icon: 64px;
 }
 
+/* Enlarge icons when sidebar is expanded */
+[data-sidebar="menu-button"] svg {
+  width: 24px;
+  height: 24px;
+}
+
+[data-sidebar="menu-button"] {
+  min-height: 48px;
+  font-size: 16px !important;
+}
+
 /* Enlarge icons when sidebar is collapsed */
 [data-state="collapsed"] [data-sidebar="menu-button"] svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 
 [data-state="collapsed"] [data-sidebar="menu-button"] {
-  min-height: 44px;
+  min-height: 48px;
   padding-left: 0;
   padding-right: 0;
   justify-content: center;

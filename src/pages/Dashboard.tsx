@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sidebar, Text, Button } from "@cloudflare/kumo";
-import { ListChecks, ChartBar, GearSix, ArrowLeft } from "@phosphor-icons/react";
+import { ListChecks, ChartBar, GearSix, ArrowLeft, Plus } from "@phosphor-icons/react";
 import { useTranslation } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [activeNav, setActiveNav] = useState("tickets");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     const check = () => {
@@ -78,6 +79,7 @@ export default function Dashboard() {
           borderTop: "1px solid var(--color-kumo-hairline)",
           display: "flex",
           justifyContent: sidebarOpen ? "flex-end" : "center",
+          marginTop: "auto",
         }}>
           <Button
             variant="ghost"
@@ -105,6 +107,7 @@ export default function Dashboard() {
         <div style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           padding: "0.75rem 1.5rem",
           borderBottom: "1px solid var(--color-kumo-hairline)",
           flexShrink: 0,
@@ -112,6 +115,11 @@ export default function Dashboard() {
           <Text variant="heading2" as="h1">
             {navItems.find(n => n.key === activeNav)?.label}
           </Text>
+          {activeNav === "tickets" && (
+            <Button variant="primary" icon={<Plus />} onClick={() => setCreateOpen(true)}>
+              {t("ticket.new")}
+            </Button>
+          )}
         </div>
 
         {/* Content area */}
@@ -120,7 +128,7 @@ export default function Dashboard() {
           overflow: "auto",
           padding: isMobile ? "1rem" : "1.5rem",
         }}>
-          {activeNav === "tickets" && <TicketList />}
+          {activeNav === "tickets" && <TicketList createOpen={createOpen} onCreateOpenChange={setCreateOpen} />}
           {activeNav === "stats" && <Statistics />}
           {activeNav === "settings" && <Settings />}
         </div>

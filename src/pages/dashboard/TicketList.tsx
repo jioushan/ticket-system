@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Table, Badge, Button, Tabs, Pagination, Empty, Text, Dialog } from "@cloudflare/kumo";
-import { Plus } from "@phosphor-icons/react";
+import { Table, Badge, Tabs, Pagination, Empty, Text, Dialog } from "@cloudflare/kumo";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
@@ -15,7 +14,12 @@ const priorityVariant: Record<string, "neutral" | "blue" | "orange" | "red"> = {
   low: "neutral", medium: "blue", high: "orange", urgent: "red",
 };
 
-export default function TicketList() {
+interface TicketListProps {
+  createOpen: boolean;
+  onCreateOpenChange: (open: boolean) => void;
+}
+
+export default function TicketList({ createOpen, onCreateOpenChange }: TicketListProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -23,7 +27,6 @@ export default function TicketList() {
   const [tabFilter, setTabFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [perPage] = useState(10);
-  const [createOpen, setCreateOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -66,7 +69,7 @@ export default function TicketList() {
   const handleCreate = async (data: { title: string; description: string; priority: TicketPriority; turnstileToken?: string }) => {
     try {
       await api.tickets.create({ title: data.title, description: data.description, priority: data.priority, turnstileToken: data.turnstileToken });
-      setCreateOpen(false);
+      onCreateOpenChange(false);
       await fetchTickets();
     } catch (err: any) {
       alert(err.message || "Failed to create ticket");
@@ -128,12 +131,6 @@ export default function TicketList() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <Button variant="primary" icon={<Plus />} onClick={() => setCreateOpen(true)}>
-          {t("ticket.new")}
-        </Button>
-      </div>
-
       <Tabs
         value={tabFilter}
         onValueChange={(v) => { setTabFilter(v); setPage(1); }}
@@ -185,11 +182,11 @@ export default function TicketList() {
         </Pagination>
       )}
 
-      <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog.Root open={createOpen} onOpenChange={onCreateOpenChange}>
         <Dialog size={isMobile ? "sm" : "lg"} className="p-8" style={{ maxHeight: "90vh", overflow: "auto" }}>
           <Dialog.Title>{t("ticket.new")}</Dialog.Title>
           <div style={{ paddingTop: 16 }}>
-            <TicketForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />
+            <TicketForm onSubmit={handleCreate} onCancel={() => onCreateOpenChange(false)} />
           </div>
         </Dialog>
       </Dialog.Root>
