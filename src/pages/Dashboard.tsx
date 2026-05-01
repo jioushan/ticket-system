@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sidebar, Text, Button } from "@cloudflare/kumo";
-import { ListChecks, ChartBar, GearSix, List } from "@phosphor-icons/react";
+import { ListChecks, ChartBar, GearSix, ArrowLeft } from "@phosphor-icons/react";
 import { useTranslation } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
@@ -37,7 +37,12 @@ export default function Dashboard() {
     <Sidebar.Provider open={sidebarOpen} onOpenChange={setSidebarOpen} collapsible="icon">
       <Sidebar>
         <Sidebar.Header>
-          <Text variant="heading3" as="span">{t("app.title")}</Text>
+          {sidebarOpen && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0 0.25rem" }}>
+              <img src="https://www.jsmsr.com/v3/assets/img/favicon.svg" alt="Logo" style={{ width: 24, height: 24 }} />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{t("app.title")}</span>
+            </div>
+          )}
         </Sidebar.Header>
         <Sidebar.Content>
           <Sidebar.Menu>
@@ -55,6 +60,23 @@ export default function Dashboard() {
             ))}
           </Sidebar.Menu>
         </Sidebar.Content>
+        {/* Bottom-left toggle */}
+        <div style={{
+          padding: "0.75rem",
+          borderTop: "1px solid var(--color-kumo-hairline)",
+          display: "flex",
+          justifyContent: sidebarOpen ? "flex-end" : "center",
+        }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            shape="square"
+            aria-label="Toggle sidebar"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <ArrowLeft style={{ transform: sidebarOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }} />
+          </Button>
+        </div>
       </Sidebar>
 
       <div style={{
@@ -67,19 +89,14 @@ export default function Dashboard() {
       }}>
         <TopBar />
 
-        {/* Page header with sidebar toggle */}
+        {/* Page header — no sidebar toggle here */}
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: "0.75rem",
           padding: "0.75rem 1.5rem",
           borderBottom: "1px solid var(--color-kumo-hairline)",
           flexShrink: 0,
         }}>
-          <Button variant="ghost" size="sm" shape="square" aria-label="Toggle sidebar"
-            onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <List />
-          </Button>
           <Text variant="heading2" as="h1">
             {navItems.find(n => n.key === activeNav)?.label}
           </Text>
