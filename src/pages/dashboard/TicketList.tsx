@@ -25,6 +25,14 @@ export default function TicketList() {
   const [perPage] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -178,7 +186,7 @@ export default function TicketList() {
       )}
 
       <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
-        <Dialog size="sm" className="p-8" style={{ maxHeight: "90vh", overflow: "auto" }}>
+        <Dialog size={isMobile ? "sm" : "lg"} className="p-8" style={{ maxHeight: "90vh", overflow: "auto" }}>
           <Dialog.Title>{t("ticket.new")}</Dialog.Title>
           <div style={{ paddingTop: 16 }}>
             <TicketForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />
