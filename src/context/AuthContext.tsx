@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<{ requires2fa?: boolean; tempToken?: string; method?: "totp" | "passkey"; passkeyOptions?: any; challengeToken?: string }>;
+  login: (username: string, password: string, turnstileToken?: string) => Promise<{ requires2fa?: boolean; tempToken?: string; method?: "totp" | "passkey"; passkeyOptions?: any; challengeToken?: string }>;
   completeLogin: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) refreshUser();
   }, [refreshUser]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const data = await api.auth.login(username, password);
+  const login = useCallback(async (username: string, password: string, turnstileToken?: string) => {
+    const data = await api.auth.login(username, password, turnstileToken);
     if (data.requires2fa) {
       return { requires2fa: true, tempToken: data.tempToken, method: data.method, passkeyOptions: data.passkeyOptions, challengeToken: data.challengeToken };
     }

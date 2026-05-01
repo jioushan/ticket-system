@@ -83,7 +83,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const result = await login(username, password);
+      const result = await login(username, password, turnstileToken || undefined);
       if (result.requires2fa) {
         setRequires2fa(true);
         setTempToken(result.tempToken || "");
@@ -212,6 +212,13 @@ export default function Login() {
                 <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                   <Input label={t("auth.username")} value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} />
                   <SensitiveInput label={t("auth.password")} value={password} onValueChange={setPassword} />
+                  {turnstileEnabled && turnstileSiteKey && (
+                    <TurnstileWidget
+                      siteKey={turnstileSiteKey}
+                      onVerify={setTurnstileToken}
+                      onExpire={() => setTurnstileToken("")}
+                    />
+                  )}
                   <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
                 </form>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>

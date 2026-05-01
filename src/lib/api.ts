@@ -17,8 +17,8 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
 export const api = {
   publicSettings: () => request("/api/public-settings"),
   auth: {
-    login: (username: string, password: string) =>
-      request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    login: (username: string, password: string, turnstileToken?: string) =>
+      request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password, turnstileToken }) }),
     register: (username: string, email: string, password: string, turnstileToken?: string) =>
       request("/api/auth/register", { method: "POST", body: JSON.stringify({ username, email, password, turnstileToken }) }),
     logout: () => request("/api/auth/logout", { method: "POST" }),
