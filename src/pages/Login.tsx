@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Button, Input, SensitiveInput, Banner } from "@cloudflare/kumo";
+import { useState, useEffect, useRef } from "react";
+import { Button, Input, SensitiveInput, Banner, Text } from "@cloudflare/kumo";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { useTranslation } from "../i18n/I18nContext";
@@ -28,8 +28,12 @@ export default function Login() {
 
   // 2FA
   const [requires2fa, setRequires2fa] = useState(false);
+  const [twofaMethod, setTwofaMethod] = useState<"totp" | "passkey">("totp");
   const [tempToken, setTempToken] = useState("");
   const [twoFACode, setTwoFACode] = useState("");
+  const [passkeyOptions, setPasskeyOptions] = useState<any>(null);
+  const [passkeyChallengeToken, setPasskeyChallengeToken] = useState("");
+  const passkeyTriggered = useRef(false);
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -48,11 +52,29 @@ export default function Login() {
     }).catch(() => {});
   }, []);
 
+  // Auto-trigger passkey ceremony when method is passkey
+  useEffect(() => {
+    if (requires2fa && twofaMethod === "passkey" && passkeyOptions && !passkeyTriggered.current) {
+      passkeyTriggered.current = true;
+      handlePasskey2FA();
+    }
+  }, [requires2fa, twofaMethod, passkeyOptions]);
+
   const switchPanel = (target: Panel) => {
     setError("");
     setSuccess("");
     setTurnstileToken("");
     setPanel(target);
+  };
+
+  const reset2FA = () => {
+    setRequires2fa(false);
+    setTempToken("");
+    setTwoFACode("");
+    setPasskeyOptions(null);
+    setPasskeyChallengeToken("");
+    passkeyTriggered.current = false;
+    setError("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -65,12 +87,15 @@ export default function Login() {
       if (result.requires2fa) {
         setRequires2fa(true);
         setTempToken(result.tempToken || "");
+        setTwofaMethod(result.method || "totp");
+        if (result.passkeyOptions) setPasskeyOptions(result.passkeyOptions);
+        if (result.challengeToken) setPasskeyChallengeToken(result.challengeToken);
       }
     } catch { setError(t("auth.loginError")); }
     finally { setLoading(false); }
   };
 
-  const handleVerify2FA = async (e: React.FormEvent) => {
+  const handleVerifyTOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!twoFACode) return;
     setError("");
@@ -82,13 +107,12 @@ export default function Login() {
     finally { setLoading(false); }
   };
 
-  const handlePasskeyLogin = async () => {
+  const handlePasskey2FA = async () => {
     setError("");
     setLoading(true);
     try {
-      const { options, challengeToken } = await api.auth.passkeyLoginOptions(username || undefined);
-      const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false });
-      const data = await api.auth.passkeyLoginVerify(response, challengeToken);
+      const response = await startAuthentication({ optionsJSON: passkeyOptions, useBrowserAutofill: false });
+      const data = await api.auth.verify2faPasskey(tempToken, response, passkeyChallengeToken);
       completeLogin(data.token, data.user);
     } catch (err: any) {
       setError(err.message || "Passkey 驗證失敗");
@@ -190,9 +214,6 @@ export default function Login() {
                   <SensitiveInput label={t("auth.password")} value={password} onValueChange={setPassword} />
                   <Button type="submit" variant="primary" size="lg" loading={loading}>{t("auth.login")}</Button>
                 </form>
-                <Button variant="secondary" size="lg" icon={<Fingerprint />} onClick={handlePasskeyLogin} loading={loading}>
-                  使用 Passkey 登入
-                </Button>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <button type="button" className="text-link-btn" onClick={() => switchPanel("register")}>
                     {t("auth.register")}
@@ -202,9 +223,23 @@ export default function Login() {
                   </button>
                 </div>
               </>
+            ) : twofaMethod === "passkey" ? (
+              <>
+                <div style={{ textAlign: "center", padding: "1rem 0" }}>
+                  <Fingerprint size={48} />
+                  <div style={{ marginTop: 8 }}><Text size="sm" variant="secondary">正在使用 Passkey 驗證...</Text></div>
+                </div>
+                {error && <Banner variant="error">{error}</Banner>}
+                <Button variant="primary" size="lg" icon={<Fingerprint />} onClick={handlePasskey2FA} loading={loading}>
+                  重新嘗試 Passkey 驗證
+                </Button>
+                <button type="button" className="text-link-btn" onClick={reset2FA}>
+                  返回登入
+                </button>
+              </>
             ) : (
               <>
-                <form onSubmit={handleVerify2FA} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <form onSubmit={handleVerifyTOTP} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                   <Input
                     label="驗證碼"
                     placeholder="輸入 6 位驗證碼"
@@ -214,7 +249,7 @@ export default function Login() {
                   />
                   <Button type="submit" variant="primary" size="lg" loading={loading}>驗證</Button>
                 </form>
-                <button type="button" className="text-link-btn" onClick={() => { setRequires2fa(false); setTempToken(""); setTwoFACode(""); setError(""); }}>
+                <button type="button" className="text-link-btn" onClick={reset2FA}>
                   返回登入
                 </button>
               </>

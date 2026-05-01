@@ -122,7 +122,12 @@ export default function Settings() {
       setHas2fa(true);
       setTwoFASetup(null);
       setTwoFACode("");
-      setTwoFAResult({ ok: true, msg: "2FA 已啟用" });
+      // 互斥：啟用 TOTP 後刪除所有 Passkey
+      for (const pk of passkeys) {
+        await api.auth.passkeyDelete(pk.id).catch(() => {});
+      }
+      setPasskeys([]);
+      setTwoFAResult({ ok: true, msg: "2FA 已啟用（Passkey 已移除）" });
     } catch (err: any) {
       setTwoFAResult({ ok: false, msg: err.message || "驗證失敗" });
     } finally {
@@ -153,7 +158,9 @@ export default function Settings() {
       const { options, challengeToken } = await api.auth.passkeyRegisterOptions();
       const response = await startRegistration({ optionsJSON: options });
       await api.auth.passkeyRegisterVerify(response, challengeToken);
-      setPasskeyResult({ ok: true, msg: "Passkey 已註冊" });
+      // 後端自動關閉 TOTP 2FA（互斥）
+      setHas2fa(false);
+      setPasskeyResult({ ok: true, msg: "Passkey 已註冊（TOTP 2FA 已自動關閉）" });
       await fetchPasskeys();
     } catch (err: any) {
       setPasskeyResult({ ok: false, msg: err.message || "註冊失敗" });
@@ -286,8 +293,11 @@ export default function Settings() {
 
       {/* 2FA */}
       <section>
-        <Text variant="heading3" as="h2">二步驗證 (2FA)</Text>
+        <Text variant="heading3" as="h2">二步驗證 (TOTP)</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+          {passkeys.length > 0 && !has2fa && (
+            <Banner variant="default">已啟用 Passkey，TOTP 2FA 不可用。兩者互斥，僅可啟用其一。</Banner>
+          )}
           {has2fa ? (
             <>
               <div style={{ width: "fit-content" }}><Badge variant="green">已啟用</Badge></div>
@@ -344,7 +354,10 @@ export default function Settings() {
       <section>
         <Text variant="heading3" as="h2">Passkey（通行密鑰）</Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
-          <Text size="sm" variant="secondary">使用指紋、Face ID 或硬體安全金鑰登入，無需輸入密碼。</Text>
+          <Text size="sm" variant="secondary">使用指紋、Face ID 或硬體安全金鑰作為二步驗證。與 TOTP 2FA 互斥。</Text>
+          {has2fa && passkeys.length === 0 && (
+            <Banner variant="default">已啟用 TOTP 2FA，Passkey 不可用。兩者互斥，僅可啟用其一。</Banner>
+          )}
           {passkeys.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {passkeys.map((pk) => (
