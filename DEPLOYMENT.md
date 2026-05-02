@@ -109,11 +109,6 @@ wrangler secret put TURNSTILE_SECRET_KEY
 wrangler deploy
 ```
 
-部署成功後會顯示 Worker 的 URL，例如：
-```
-https://ticket-system-api.jsmsr.com
-```
-
 記下這個 URL，前端需要使用。
 
 ### 8. 設置 CORS（如需要）
