@@ -41,12 +41,13 @@ export default function LanguageSwitch() {
           top: "100%",
           right: 0,
           marginTop: "0.25rem",
-          background: "var(--color-kumo-surface, #fff)",
+          background: "var(--color-kumo-base, #fff)",
           border: "1px solid var(--color-kumo-hairline)",
           borderRadius: "0.375rem",
           boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           zIndex: 100,
           minWidth: "100px",
+          overflow: "hidden",
         }}>
           {localeOptions.map((opt) => (
             <div
@@ -59,19 +60,14 @@ export default function LanguageSwitch() {
                 padding: "0.5rem 0.75rem",
                 cursor: "pointer",
                 fontSize: "0.875rem",
-                background: locale === opt.value ? "var(--color-kumo-primary, #e0e0e0)" : "transparent",
                 color: "var(--text-color-kumo-default)",
-                borderRadius: "0.375rem",
+                background: locale === opt.value ? "var(--color-kumo-fill, #f3f4f6)" : "transparent",
               }}
               onMouseEnter={(e) => {
-                if (locale !== opt.value) {
-                  (e.target as HTMLElement).style.background = "var(--color-kumo-hover, #f5f5f5)";
-                }
+                (e.target as HTMLElement).style.background = "var(--color-kumo-fill, #f3f4f6)";
               }}
               onMouseLeave={(e) => {
-                if (locale !== opt.value) {
-                  (e.target as HTMLElement).style.background = "transparent";
-                }
+                (e.target as HTMLElement).style.background = locale === opt.value ? "var(--color-kumo-fill, #f3f4f6)" : "transparent";
               }}
             >
               {opt.label}
