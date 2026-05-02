@@ -18,7 +18,13 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    return (localStorage.getItem("locale") as Locale) || "zh";
+    const stored = localStorage.getItem("locale");
+    if (stored === "zh-TW") {
+      localStorage.setItem("locale", "zh");
+      return "zh";
+    }
+    if (stored && stored in locales) return stored as Locale;
+    return "zh";
   });
 
   const setLocale = useCallback((l: Locale) => {
