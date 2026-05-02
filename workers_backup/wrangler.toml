@@ -1,21 +1,20 @@
 name = "ticket-system-api"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-05-02"
 
 # D1 数据库绑定
 [[d1_databases]]
 binding = "DB"
-database_name = "ticket-system"
-database_id = "745ab87f-3e9a-4bd8-8976-6954911e0e02"  # 替换为你的 D1 数据库 ID
+database_name = ""
+database_id = ""  # 替换为你的 D1 数据库 ID
 
 # R2 存储绑定（附件）
 [[r2_buckets]]
 binding = "ATTACHMENTS"
-bucket_name = "ticket-attachments"
+bucket_name = ""
 
 # 环境变量（敏感值通过 wrangler secret 设置，不要写在这里）
 [vars]
-SENDGRID_SENDER = "noreply <noreply@noreply.js.msr.li>"
 # 以下通过 `wrangler secret put` 设置：
 #   wrangler secret put SENDGRID_API_KEY
 #   wrangler secret put JWT_SECRET
