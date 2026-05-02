@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import en from "./locales/en.json";
-import zhTW from "./locales/zh-TW.json";
+import zh from "./locales/zh.json";
 import ja from "./locales/ja.json";
 
-type Locale = "en" | "zh-TW" | "ja";
+type Locale = "en" | "zh" | "ja";
 type Translations = Record<string, string>;
 
-const locales: Record<Locale, Translations> = { en, "zh-TW": zhTW, ja };
+const locales: Record<Locale, Translations> = { en, zh, ja };
 
 interface I18nContextValue {
   locale: Locale;
@@ -18,7 +18,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    return (localStorage.getItem("locale") as Locale) || "zh-TW";
+    return (localStorage.getItem("locale") as Locale) || "zh";
   });
 
   const setLocale = useCallback((l: Locale) => {

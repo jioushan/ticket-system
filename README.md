@@ -1,6 +1,6 @@
 # English Version
 
-# my-kumo-app (React + TypeScript + Vite)
+# ticket-system (React + TypeScript + Vite)
 
 [English] | [繁體中文](./README_zh-TW.md) | [日本語](./README_ja.md)
 
