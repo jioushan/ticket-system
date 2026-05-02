@@ -4,7 +4,7 @@
 
 [English](./README.md) | [繁體中文](./README_zh-TW.md) | [日本語]
 
-[![最新リリース](https://img.shields.io/github/v/release/your-username/my-kumo-app?label=リリース&logo=github)](https://github.com/your-username/my-kumo-app/releases/latest)
+[![Latest release](https://img.shields.io/badge/github-repo-blue?logo=github)](https://github.com/jioushan/ticket-system)
 [![ライセンス: MIT](https://img.shields.io/badge/ライセンス-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
 

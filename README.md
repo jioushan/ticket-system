@@ -4,8 +4,8 @@
 
 [English] | [繁體中文](./README_zh-TW.md) | [日本語](./README_ja.md)
 
-[![Latest release](https://img.shields.io/github/v/release/jioushan/ticket-system?label=Release&logo=github)](https://github.com/jioushan/ticket-system/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Latest release](https://img.shields.io/badge/github-repo-blue?logo=github)](https://github.com/jioushan/ticket-system)
+[![License: MIT](https://img.shields.io/badge/repo-TypeScript-blue?logo=TypeScript)](https://opensource.org/licenses/MIT)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
 
 An AI-driven development project utilizing **Cloudflare Kumo**. This is a true "Backend-less" architecture that implements ticket management, user registration, and email notifications.
