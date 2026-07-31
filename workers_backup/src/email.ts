@@ -1,4 +1,5 @@
 import type { Env } from "./db";
+import { AwsClient } from "aws4fetch";
 
 interface EmailData {
   to: string;
@@ -7,10 +8,14 @@ interface EmailData {
 }
 
 interface EmailConfig {
-  provider: "sendgrid" | "resend" | "mailgun" | "custom";
+  provider: "sendgrid" | "resend" | "mailgun" | "ses" | "custom";
   apiKey?: string;
-  domain?: string;
-  webhookUrl?: string;
+  domain?: string;        // mailgun 专用
+  accessKeyId?: string;   // ses 专用
+  secretAccessKey?: string; // ses 专用
+  region?: string;        // ses 专用
+  configurationSetName?: string; // ses 专用，可选
+  webhookUrl?: string;    // custom 专用
   sender: string;
 }
 
@@ -46,6 +51,97 @@ async function loadEmailConfig(env: Env): Promise<EmailConfig | null> {
 
   console.warn("[Email] No email provider configured! Set email_config in Settings > Email, or add SENDGRID_API_KEY secret.");
   return null;
+}
+
+// --- AWS Signature V4 Signing ---
+
+async function hmacSha256(key: Uint8Array, data: string): Promise<Uint8Array> {
+  const keyImport = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return new Uint8Array(await crypto.subtle.sign("HMAC", keyImport, new TextEncoder().encode(data)));
+}
+
+async function sha256(data: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)));
+}
+
+function toHex(data: Uint8Array): string {
+  return Array.from(data).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function getAmzDate(date: Date): string {
+  return date.toISOString().replace(/[:\-]|\.\d{3}/g, "");
+}
+
+async function signAWS(
+  accessKeyId: string,
+  secretAccessKey: string,
+  region: string,
+  service: string,
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+  host: string
+): Promise<Record<string, string>> {
+  // Trim credentials to remove any accidental whitespace/invisible chars
+  const cleanKeyId = accessKeyId.trim();
+  const cleanSecret = secretAccessKey.trim();
+  const cleanRegion = region.trim();
+
+  const now = new Date();
+  const amzDate = getAmzDate(now);
+  const dateStamp = amzDate.slice(0, 8);
+
+  // x-amz-date is generated internally and must be part of the signed headers
+  const allHeaders: Record<string, string> = {
+    ...headers,
+    "X-Amz-Date": amzDate,
+  };
+
+  // Canonical request - build headers with explicit \n on each line
+  const sortedHeaderKeys = Object.keys(allHeaders).sort();
+  // Each header line MUST end with \n (including the last one)
+  const canonicalHeaders = sortedHeaderKeys
+    .map(k => `${k.toLowerCase()}:${allHeaders[k].trim()}\n`)
+    .join("");
+  const signedHeaders = sortedHeaderKeys.map(k => k.toLowerCase()).join(";");
+  const payloadHash = toHex(await sha256(body));
+  // canonicalHeaders already ends with \n, then add another \n (empty line) before signedHeaders
+  const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  // Debug logging for signature verification - use JSON.stringify to show real \n
+  console.log("[SES-SIG] canonicalRequest(JSON):", JSON.stringify(canonicalRequest));
+  console.log("[SES-SIG] signedHeaders:", signedHeaders);
+  console.log("[SES-SIG] payloadHash:", payloadHash);
+
+  // String to sign
+  const credentialScope = `${dateStamp}/${cleanRegion}/${service}/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${toHex(await sha256(canonicalRequest))}`;
+
+  console.log("[SES-SIG] stringToSign(JSON):", JSON.stringify(stringToSign));
+  console.log("[SES-SIG] credentialScope:", credentialScope);
+
+  // Calculate signature
+  const kSecret = new TextEncoder().encode("AWS4" + cleanSecret);
+  const kDate = await hmacSha256(kSecret, dateStamp);
+  const kRegion = await hmacSha256(kDate, cleanRegion);
+  const kService = await hmacSha256(kRegion, service);
+  const kSigning = await hmacSha256(kService, "aws4_request");
+  const signature = toHex(await hmacSha256(kSigning, stringToSign));
+
+  // Authorization header
+  const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${cleanKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  return {
+    "Authorization": authorizationHeader,
+    "X-Amz-Date": amzDate,
+  };
 }
 
 // --- Provider-specific senders ---
@@ -139,6 +235,78 @@ async function sendViaCustom(config: EmailConfig, data: EmailData): Promise<{ ok
   return { ok: false, error: `Webhook error ${res.status}: ${errBody}` };
 }
 
+async function sendViaSES(config: EmailConfig, data: EmailData): Promise<{ ok: boolean; error?: string }> {
+  if (!config.accessKeyId || !config.secretAccessKey) return { ok: false, error: "AWS credentials not configured" };
+  if (!config.region) return { ok: false, error: "AWS region not configured" };
+
+  const host = `email.${config.region}.amazonaws.com`;
+  // SES v2 API uses RESTful endpoint: /v2/email/outbound-emails
+  const endpoint = `https://${host}/v2/email/outbound-emails`;
+  const from = parseSender(config.sender);
+
+  // SES v2 API JSON request body
+  const sesBody: any = {
+    FromEmailAddress: from.name ? `${from.name} <${from.email}>` : from.email,
+    Destination: { ToAddresses: [data.to] },
+    Content: {
+      Simple: {
+        Subject: { Data: data.subject },
+        Body: { Html: { Data: data.html } },
+      },
+    },
+  };
+
+  if (config.configurationSetName) {
+    sesBody.ConfigurationSetName = config.configurationSetName;
+  }
+
+  const bodyStr = JSON.stringify(sesBody);
+
+  // Use aws4fetch for correct SigV4 signing in Cloudflare Workers
+  // Credentials come from DB (configured via frontend), NOT env vars
+  const cleanKeyId = config.accessKeyId.trim();
+  const cleanSecret = config.secretAccessKey.trim();
+  const cleanRegion = config.region.trim();
+
+  console.log("[SES] accessKeyId (first 8):", cleanKeyId.substring(0, 8) + "...");
+  console.log("[SES] secretAccessKey length:", cleanSecret.length);
+  console.log("[SES] region:", cleanRegion);
+
+  const aws = new AwsClient({
+    accessKeyId: cleanKeyId,
+    secretAccessKey: cleanSecret,
+    region: cleanRegion,
+    service: "ses",
+  });
+
+  console.log("[SES] endpoint:", endpoint);
+  console.log("[SES] body:", bodyStr.substring(0, 150) + "...");
+
+  const res = await aws.fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: bodyStr,
+  });
+
+  console.log("[SES] response:", res.status, res.statusText);
+
+  if (res.ok) return { ok: true };
+
+  let errMsg = `SES API error ${res.status}`;
+  const errText = await res.text();
+  try {
+    const errJson = JSON.parse(errText);
+    if (errJson.message) errMsg += `: ${errJson.message}`;
+    else if (errText) errMsg += `: ${errText}`;
+  } catch {
+    if (errText) errMsg += `: ${errText}`;
+  }
+
+  return { ok: false, error: errMsg };
+}
+
 // --- Main send function ---
 
 export async function sendEmail(env: Env, data: EmailData): Promise<{ ok: boolean; error?: string }> {
@@ -161,6 +329,9 @@ export async function sendEmail(env: Env, data: EmailData): Promise<{ ok: boolea
         break;
       case "mailgun":
         result = await sendViaMailgun(config, data);
+        break;
+      case "ses":
+        result = await sendViaSES(config, data);
         break;
       case "custom":
         result = await sendViaCustom(config, data);
@@ -190,7 +361,7 @@ export async function sendTestEmail(env: Env, to: string): Promise<{ ok: boolean
   });
 }
 
-export async function getEmailTemplate(db: D1Database, name: string, locale: string = 'zh-TW'): Promise<{ subject: string; body: string } | null> {
+export async function getEmailTemplate(db: D1Database, name: string, locale: string = 'zh'): Promise<{ subject: string; body: string } | null> {
   try {
     const tpl = await db.prepare("SELECT subject, body FROM email_templates WHERE name = ? AND locale = ?").bind(name, locale).first();
     return tpl ? { subject: tpl.subject as string, body: tpl.body as string } : null;
@@ -210,7 +381,7 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
 
 async function getUserLocale(db: D1Database, email: string): Promise<string> {
   const user = await db.prepare("SELECT locale FROM users WHERE email = ?").bind(email).first();
-  return (user?.locale as string) || 'zh-TW';
+  return (user?.locale as string) || 'zh';
 }
 
 // Fallback templates when DB templates are missing (per locale)
@@ -220,7 +391,7 @@ const FALLBACK_TEMPLATES: Record<string, Record<string, { subject: string; body:
       subject: "[Ticket System] New Ticket: {title}",
       body: "<h2>New Ticket Created</h2><p>Ticket ID: {ticket_id}</p><p>Title: {title}</p><p>Description: {description}</p><p>Priority: {priority}</p>",
     },
-    'zh-TW': {
+    zh: {
       subject: "[Ticket JSMSR Network] 新工單: {title}",
       body: "<h2>新工單已建立</h2><p>工單編號: {ticket_id}</p><p>標題: {title}</p><p>描述: {description}</p><p>優先級: {priority}</p>",
     },
@@ -234,7 +405,7 @@ const FALLBACK_TEMPLATES: Record<string, Record<string, { subject: string; body:
       subject: "[Ticket System] Ticket Reply: {title}",
       body: "<h2>New Reply on Ticket</h2><p>Ticket ID: {ticket_id}</p><p>Title: {title}</p><p>Reply: {content}</p>",
     },
-    'zh-TW': {
+    zh: {
       subject: "[Ticket JSMSR Network] 工單回覆: {title}",
       body: "<h2>工單有新回覆</h2><p>工單編號: {ticket_id}</p><p>標題: {title}</p><p>回覆內容: {content}</p>",
     },
@@ -248,7 +419,7 @@ const FALLBACK_TEMPLATES: Record<string, Record<string, { subject: string; body:
       subject: "[Ticket System] Ticket Closed: {title}",
       body: "<h2>Ticket Closed</h2><p>Ticket ID: {ticket_id}</p><p>Title: {title}</p>",
     },
-    'zh-TW': {
+    zh: {
       subject: "[Ticket JSMSR Network] 工單已關閉: {title}",
       body: "<h2>工單已關閉</h2><p>工單編號: {ticket_id}</p><p>標題: {title}</p>",
     },
@@ -259,16 +430,16 @@ const FALLBACK_TEMPLATES: Record<string, Record<string, { subject: string; body:
   },
 };
 
-async function getTemplate(db: D1Database, name: string, locale: string = 'zh-TW'): Promise<{ subject: string; body: string } | null> {
+async function getTemplate(db: D1Database, name: string, locale: string = 'zh'): Promise<{ subject: string; body: string } | null> {
   const tpl = await getEmailTemplate(db, name, locale);
   if (tpl) return tpl;
   if (FALLBACK_TEMPLATES[name]?.[locale]) {
     console.log(`[Email] Using fallback template for "${name}" locale "${locale}"`);
     return FALLBACK_TEMPLATES[name][locale];
   }
-  if (FALLBACK_TEMPLATES[name]?.['zh-TW']) {
-    console.log(`[Email] Using zh-TW fallback for "${name}"`);
-    return FALLBACK_TEMPLATES[name]['zh-TW'];
+  if (FALLBACK_TEMPLATES[name]?.['zh']) {
+    console.log(`[Email] Using zh fallback for "${name}"`);
+    return FALLBACK_TEMPLATES[name]['zh'];
   }
   console.error(`[Email] No template found for "${name}" locale "${locale}"`);
   return null;

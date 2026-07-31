@@ -13,6 +13,11 @@ database_id = ""  # 替换为你的 D1 数据库 ID
 binding = "ATTACHMENTS"
 bucket_name = ""
 
+#Cloudflare log check
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # 环境变量（敏感值通过 wrangler secret 设置，不要写在这里）
 [vars]
 # 以下通过 `wrangler secret put` 设置：
