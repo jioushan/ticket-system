@@ -48,11 +48,47 @@ export default function Settings() {
   const [maxFileSize, setMaxFileSize] = useState("5");
 
   // Email settings
-  const [emailProvider, setEmailProvider] = useState<"sendgrid" | "resend" | "mailgun" | "custom">("sendgrid");
+  const [emailProvider, setEmailProvider] = useState<"sendgrid" | "resend" | "mailgun" | "ses" | "custom">("sendgrid");
   const [emailApiKey, setEmailApiKey] = useState("");
   const [emailDomain, setEmailDomain] = useState("");
   const [emailWebhookUrl, setEmailWebhookUrl] = useState("");
   const [emailSender, setEmailSender] = useState("");
+  // SES specific settings
+  const [emailRegion, setEmailRegion] = useState("us-east-1");
+  const [emailAccessKeyId, setEmailAccessKeyId] = useState("");
+  const [emailSecretAccessKey, setEmailSecretAccessKey] = useState("");
+  const [emailConfigSetName, setEmailConfigSetName] = useState("");
+
+  const AWS_REGIONS = [
+    { value: "us-east-1", label: "us-east-1 (N. Virginia)" },
+    { value: "us-east-2", label: "us-east-2 (Ohio)" },
+    { value: "us-west-1", label: "us-west-1 (N. California)" },
+    { value: "us-west-2", label: "us-west-2 (Oregon)" },
+    { value: "af-south-1", label: "af-south-1 (Cape Town)" },
+    { value: "ap-east-1", label: "ap-east-1 (Hong Kong)" },
+    { value: "ap-northeast-1", label: "ap-northeast-1 (Tokyo)" },
+    { value: "ap-northeast-2", label: "ap-northeast-2 (Seoul)" },
+    { value: "ap-northeast-3", label: "ap-northeast-3 (Osaka)" },
+    { value: "ap-south-1", label: "ap-south-1 (Mumbai)" },
+    { value: "ap-south-2", label: "ap-south-2 (Hyderabad)" },
+    { value: "ap-southeast-1", label: "ap-southeast-1 (Singapore)" },
+    { value: "ap-southeast-2", label: "ap-southeast-2 (Jakarta)" },
+    { value: "ap-southeast-3", label: "ap-southeast-3 (Kuala Lumpur)" },
+    { value: "ap-southeast-4", label: "ap-southeast-4 (Melbourne)" },
+    { value: "ca-central-1", label: "ca-central-1 (Central)" },
+    { value: "eu-central-1", label: "eu-central-1 (Frankfurt)" },
+    { value: "eu-central-2", label: "eu-central-2 (Zurich)" },
+    { value: "eu-north-1", label: "eu-north-1 (Stockholm)" },
+    { value: "eu-south-1", label: "eu-south-1 (Milan)" },
+    { value: "eu-south-2", label: "eu-south-2 (Spain)" },
+    { value: "eu-west-1", label: "eu-west-1 (Ireland)" },
+    { value: "eu-west-2", label: "eu-west-2 (London)" },
+    { value: "eu-west-3", label: "eu-west-3 (Paris)" },
+    { value: "il-central-1", label: "il-central-1 (Tel Aviv)" },
+    { value: "me-south-1", label: "me-south-1 (Bahrain)" },
+    { value: "me-central-1", label: "me-central-1 (UAE)" },
+    { value: "sa-east-1", label: "sa-east-1 (São Paulo)" },
+  ];
 
   // Users management
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -97,6 +133,10 @@ export default function Settings() {
           if (ec.apiKey) setEmailApiKey(ec.apiKey);
           if (ec.domain) setEmailDomain(ec.domain);
           if (ec.webhookUrl) setEmailWebhookUrl(ec.webhookUrl);
+          if (ec.accessKeyId) setEmailAccessKeyId(ec.accessKeyId);
+          if (ec.secretAccessKey) setEmailSecretAccessKey(ec.secretAccessKey);
+          if (ec.region) setEmailRegion(ec.region);
+          if (ec.configurationSetName) setEmailConfigSetName(ec.configurationSetName);
           if (ec.sender) setEmailSender(ec.sender);
         } catch {}
       }
@@ -251,9 +291,16 @@ export default function Settings() {
     try {
       const emailConfig = JSON.stringify({
         provider: emailProvider,
-        apiKey: emailApiKey,
-        domain: emailDomain,
-        webhookUrl: emailWebhookUrl,
+        ...(emailProvider === "ses" ? {
+          accessKeyId: emailAccessKeyId,
+          secretAccessKey: emailSecretAccessKey,
+          region: emailRegion,
+          configurationSetName: emailConfigSetName,
+        } : {
+          apiKey: emailApiKey,
+          domain: emailDomain,
+          webhookUrl: emailWebhookUrl,
+        }),
         sender: emailSender,
       });
       await api.settings.update({
@@ -580,10 +627,11 @@ export default function Settings() {
                   <Select.Option value="sendgrid">SendGrid</Select.Option>
                   <Select.Option value="resend">Resend</Select.Option>
                   <Select.Option value="mailgun">Mailgun</Select.Option>
+                  <Select.Option value="ses">Amazon SES</Select.Option>
                   <Select.Option value="custom">{t("settings.emailProviderCustom")}</Select.Option>
                 </Select>
 
-                {emailProvider !== "custom" && (
+                {emailProvider !== "custom" && emailProvider !== "ses" && (
                   <SensitiveInput
                     label={t("settings.emailApiKey")}
                     value={emailApiKey}
@@ -599,6 +647,39 @@ export default function Settings() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailDomain(e.target.value)}
                     description={t("settings.emailDomainDesc")}
                   />
+                )}
+
+                {emailProvider === "ses" && (
+                  <>
+                    <SensitiveInput
+                      label={t("settings.emailAccessKeyId")}
+                      value={emailAccessKeyId}
+                      onValueChange={setEmailAccessKeyId}
+                      description={t("settings.emailAccessKeyIdDesc")}
+                    />
+                    <SensitiveInput
+                      label={t("settings.emailSecretAccessKey")}
+                      value={emailSecretAccessKey}
+                      onValueChange={setEmailSecretAccessKey}
+                      description={t("settings.emailSecretAccessKeyDesc")}
+                    />
+                    <Select
+                      label={t("settings.emailRegion")}
+                      value={emailRegion}
+                      onValueChange={(v) => setEmailRegion(v as typeof emailRegion)}
+                      description={t("settings.emailRegionDesc")}
+                    >
+                      {AWS_REGIONS.map(r => (
+                        <Select.Option key={r.value} value={r.value}>{r.label}</Select.Option>
+                      ))}
+                    </Select>
+                    <Input
+                      label={t("settings.emailConfigSetName")}
+                      value={emailConfigSetName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailConfigSetName(e.target.value)}
+                      description={t("settings.emailConfigSetNameDesc")}
+                    />
+                  </>
                 )}
 
                 {emailProvider === "custom" && (
